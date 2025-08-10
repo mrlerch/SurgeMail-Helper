@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # SurgeMail Helper (Unix/Linux)
-# Version: 1.14.1
+# Version: 1.14.2
 # Repo: mrlerch/SurgeMail-Helper
 #
 # PURPOSE:

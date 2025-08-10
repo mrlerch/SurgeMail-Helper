@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   SurgeMail Helper (Windows, PowerShell 7+)
-  Version: 1.14.1
+  Version: 1.14.2
   Repo: mrlerch/SurgeMail-Helper
 #>
 
@@ -20,7 +20,7 @@ param(
 
 $env:GH_OWNER = if ($env:GH_OWNER) { $env:GH_OWNER } else { "mrlerch" }
 $env:GH_REPO  = if ($env:GH_REPO)  { $env:GH_REPO  } else { "SurgeMail-Helper" }
-$HelperVersion = "1.14.1"
+$HelperVersion = "1.14.2"
 
 function Have-Cmd($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
 function Dbg($m){ if($Debug){ Write-Host "[debug] $m" } }
@@ -47,7 +47,7 @@ function Compare-Versions([string]$A, [string]$B) {
   return 0
 }
 function Get-AuthHeaders {
-  $h=@{"User-Agent"="surgemail-helper/1.14.1"}
+  $h=@{"User-Agent"="surgemail-helper/1.14.2"}
   if($env:GH_TOKEN){$h["Authorization"]="Bearer $($env:GH_TOKEN)"}
   return $h
 }
