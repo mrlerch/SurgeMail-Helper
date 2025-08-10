@@ -42,7 +42,7 @@ SERVICE_NAME="${SERVICE_NAME:-surgemail}"
 
 GH_OWNER="${GH_OWNER:-mrlerch}"
 GH_REPO="${GH_REPO:-SurgeMail-Helper}"
-HELPER_VERSION="1.14.1"
+HELPER_VERSION="1.14.2"
 
 # ---------- Global state ----------
 SMH_DEBUG="${SMH_DEBUG:-0}"
@@ -98,7 +98,7 @@ Commands:
   self-check-update    Check if a newer helper version is available on GitHub.
   self-update [<tag>]  Update helper from release/tag/default branch.
   diagnostics          Print environment and detection info.
-  version              Print helper version (e.g., v1.14.1).
+  version              Print helper version (e.g., v1.14.2).
   where                Show script path and config path.
 
 Options:
@@ -113,7 +113,7 @@ Examples:
   surgemail restart
   surgemail update --unattended
   surgemail self-check-update
-  surgemail self-update v1.14.1
+  surgemail self-update v1.14.2
   surgemail diagnostics
 USAGE
 }
@@ -258,24 +258,22 @@ version_str() {
 
 # ---------- Self-update helpers ----------
 latest_ref() {
-  # 1) releases/latest
-  if json=$(curl_json "https://api.github.com/repos/$GH_OWNER/$GH_REPO/releases/latest" 2>/dev/null); then
-    tag=$(json_get "$json" tag_name)
-    if [[ -n "$tag" ]]; then echo "$tag"; return 0; fi
+  _ua=(-H "User-Agent: surgemail-helper/1.14.2")
+  [[ -n "${GH_TOKEN:-}" ]] && _ua+=(-H "Authorization: Bearer $GH_TOKEN")
+  if json=$(curl -sSfL "${_ua[@]}" "https://api.github.com/repos/$GH_OWNER/$GH_REPO/releases/latest" 2>/dev/null); then
+    tag=$(printf '%s' "$json" | grep -Eo '"tag_name"\s*:\s*"[^"]+"' | head -n1 | cut -d'"' -f4)
+    [[ -n "$tag" ]] && { echo "$tag"; return 0; }
   fi
-  # 2) tags (first page)
-  if json=$(curl_json "https://api.github.com/repos/$GH_OWNER/$GH_REPO/tags?per_page=1" 2>/dev/null); then
-    tag=$(json_get "$json" name)
-    if [[ -n "$tag" ]]; then echo "$tag"; return 0; fi
+  if json=$(curl -sSfL "${_ua[@]}" "https://api.github.com/repos/$GH_OWNER/$GH_REPO/tags?per_page=1" 2>/dev/null); then
+    tag=$(printf '%s' "$json" | grep -Eo '"name"\s*:\s*"[^"]+"' | head -n1 | cut -d'"' -f4)
+    [[ -n "$tag" ]] && { echo "$tag"; return 0; }
   fi
-  # 3) default branch
-  if json=$(curl_json "https://api.github.com/repos/$GH_OWNER/$GH_REPO" 2>/dev/null); then
-    branch=$(json_get "$json" default_branch)
-    if [[ -n "$branch" ]]; then echo "$branch"; return 0; fi
+  if json=$(curl -sSfL "${_ua[@]}" "https://api.github.com/repos/$GH_OWNER/$GH_REPO" 2>/dev/null); then
+    branch=$(printf '%s' "$json" | grep -Eo '"default_branch"\s*:\s*"[^"]+"' | head -n1 | cut -d'"' -f4)
+    [[ -n "$branch" ]] && { echo "$branch"; return 0; }
   fi
   return 1
 }
-
 self_check_update_quick() {
   local ref latest_v
   ref="$(latest_ref || true)"
@@ -290,7 +288,7 @@ self_check_update_quick() {
     local txt
     txt=$(curl_raw "https://raw.githubusercontent.com/$GH_OWNER/$GH_REPO/$ref/scripts/surgemail-helper.sh" 2>/dev/null || true)
     latest_v="$(printf '%s\n' "$txt" | grep -Eo '^# Version: [0-9]+\.[0-9]+\.[0-9]+' | head -n1 | awk '{print "v"$3}')"
-    latest_v="${latest_v:-v0.0.0}"
+    latest_v="${latest_v:-v1.14.2}"
   fi
   compare_versions "$HELPER_VERSION" "$latest_v"
   case $? in
@@ -494,7 +492,7 @@ with_retry() {
   local tries="$1"; shift
   local delay="$1"; shift
   local n=0
-  until "$@"; then
+  until "$@"; do
     n=$((n+1))
     [[ $n -ge $tries ]] && return 1
     warn "Retry $n/$tries: $*"
@@ -610,7 +608,7 @@ EXAMPLES
   surgemail status
   surgemail update --unattended
   GH_TOKEN=ghp_xxx surgemail self-check-update
-  surgemail self-update v1.14.1
+  surgemail self-update v1.14.2
   SMH_DEBUG=1 surgemail diagnostics
 
 SECURITY

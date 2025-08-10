@@ -52,10 +52,20 @@ function Get-AuthHeaders {
   return $h
 }
 function Get-LatestRef {
-  $headers = Get-AuthHeaders
-  try { $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/releases/latest" -Headers $headers -ErrorAction Stop; if ($rel.tag_name) { return $rel.tag_name } } catch {}
-  try { $tags= Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/tags?per_page=1" -Headers $headers -ErrorAction Stop; if ($tags[0].name) { return $tags[0].name } } catch {}
-  try { $repo= Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)" -Headers $headers -ErrorAction Stop; if ($repo.default_branch) { return $repo.default_branch } } catch {}
+  $headers = @{ "User-Agent" = "surgemail-helper/1.14.2" }
+  if ($env:GH_TOKEN) { $headers["Authorization"] = "Bearer $($env:GH_TOKEN)" }
+  try {
+    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/releases/latest" -Headers $headers -ErrorAction Stop
+    if ($rel.tag_name) { return $rel.tag_name }
+  } catch { }
+  try {
+    $tags = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/tags?per_page=1" -Headers $headers -ErrorAction Stop
+    if ($tags[0].name) { return $tags[0].name }
+  } catch { }
+  try {
+    $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)" -Headers $headers -ErrorAction Stop
+    if ($repo.default_branch) { return $repo.default_branch }
+  } catch { }
   return $null
 }
 function Self-Check-Update {
