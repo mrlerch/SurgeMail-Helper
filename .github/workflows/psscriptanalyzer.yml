@@ -1,13 +1,9 @@
 name: Analyze PowerShell
-
 on:
   push:
-    paths:
-      - "scripts/*.ps1"
+    paths: ["scripts/*.ps1"]
   pull_request:
-    paths:
-      - "scripts/*.ps1"
-
+    paths: ["scripts/*.ps1"]
 jobs:
   pssa:
     runs-on: windows-latest
