@@ -1,47 +1,61 @@
 <#
 .SYNOPSIS
   SurgeMail Helper (Windows, PowerShell 7+)
-  Version: 1.14.0
+  Version: 1.14.1
   Repo: mrlerch/SurgeMail-Helper
 #>
 
 param(
   [Parameter(Mandatory=$true, Position=0)]
-  [ValidateSet("status","start","stop","strong_stop","restart","reload","check-update","update","self-check-update","self-update")]
+  [ValidateSet("status","start","stop","strong_stop","restart","reload","check-update","update","self-check-update","self-update","diagnostics","version","where")]
   [string]$Command,
 
   [string]$Tellmail = "tellmail",
   [string]$Service  = "surgemail",
   [switch]$Unattended,
   [switch]$NoSelfCheck,
+  [switch]$Debug,
   [string]$Tag
 )
 
 $env:GH_OWNER = if ($env:GH_OWNER) { $env:GH_OWNER } else { "mrlerch" }
 $env:GH_REPO  = if ($env:GH_REPO)  { $env:GH_REPO  } else { "SurgeMail-Helper" }
-$HelperVersion = "1.14.0"
+$HelperVersion = "1.14.1"
 
 function Have-Cmd($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
+function Dbg($m){ if($Debug){ Write-Host "[debug] $m" } }
+
 function Is-Running {
   if (Have-Cmd $Tellmail) {
-    try { & $Tellmail status *> $null; if ($LASTEXITCODE -eq 0) { return $true } } catch { }
-    try { & $Tellmail version *> $null; if ($LASTEXITCODE -eq 0) { return $true } } catch { }
+    try { & $Tellmail status *> $null; if ($LASTEXITCODE -eq 0) { return $true } } catch {}
+    try { & $Tellmail version *> $null; if ($LASTEXITCODE -eq 0) { return $true } } catch {}
   }
   $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue
   if ($null -ne $svc) { return $svc.Status -eq 'Running' }
   return $false
 }
+
 function Start-SM { $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue; if ($null -ne $svc) { Start-Service -Name $Service; return } throw "Service '$Service' not found." }
 function Stop-SM  { $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue; if ($null -ne $svc) { Stop-Service -Name $Service; return } throw "Service '$Service' not found." }
 function Reload-SM { Restart-Service -Name $Service -ErrorAction SilentlyContinue }
 function Get-Version { if (Have-Cmd $Tellmail) { try { & $Tellmail version } catch { "tellmail not available" } } else { "tellmail not available" } }
-function Compare-Versions([string]$A, [string]$B) { $pa = ($A.TrimStart('v') + ".0.0").Split('.')[0..2] | ForEach-Object { [int]$_ }; $pb = ($B.TrimStart('v') + ".0.0").Split('.')[0..2] | ForEach-Object { [int]$_ }; for ($i=0; $i -lt 3; $i++) { if ($pa[$i] -gt $pb[$i]) { return 1 } elseif ($pa[$i] -lt $pb[$i]) { return 2 } }; return 0 }
-function Get-AuthHeaders { $h=@{"User-Agent"="surgemail-helper/1.14.0"}; if($env:GH_TOKEN){$h["Authorization"]="Bearer $($env:GH_TOKEN)"}; return $h }
+
+function Compare-Versions([string]$A, [string]$B) {
+  $pa = ($A.TrimStart('v') + ".0.0").Split('.')[0..2] | ForEach-Object { [int]$_ }
+  $pb = ($B.TrimStart('v') + ".0.0").Split('.')[0..2] | ForEach-Object { [int]$_ }
+  for ($i=0; $i -lt 3; $i++) { if ($pa[$i] -gt $pb[$i]) { return 1 } elseif ($pa[$i] -lt $pb[$i]) { return 2 } }
+  return 0
+}
+function Get-AuthHeaders {
+  $h=@{"User-Agent"="surgemail-helper/1.14.1"}
+  if($env:GH_TOKEN){$h["Authorization"]="Bearer $($env:GH_TOKEN)"}
+  return $h
+}
 function Get-LatestRef {
   $headers = Get-AuthHeaders
-  try { $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/releases/latest" -Headers $headers -ErrorAction Stop; if ($rel.tag_name) { return $rel.tag_name } } catch { }
-  try { $tags = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/tags?per_page=1" -Headers $headers -ErrorAction Stop; if ($tags[0].name) { return $tags[0].name } } catch { }
-  try { $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)" -Headers $headers -ErrorAction Stop; if ($repo.default_branch) { return $repo.default_branch } } catch { }
+  try { $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/releases/latest" -Headers $headers -ErrorAction Stop; if ($rel.tag_name) { return $rel.tag_name } } catch {}
+  try { $tags= Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)/tags?per_page=1" -Headers $headers -ErrorAction Stop; if ($tags[0].name) { return $tags[0].name } } catch {}
+  try { $repo= Invoke-RestMethod -Uri "https://api.github.com/repos/$($env:GH_OWNER)/$($env:GH_REPO)" -Headers $headers -ErrorAction Stop; if ($repo.default_branch) { return $repo.default_branch } } catch {}
   return $null
 }
 function Self-Check-Update {
@@ -50,7 +64,7 @@ function Self-Check-Update {
   $latest = $null
   if ($ref -match '^v\d+\.\d+\.\d+$') { $latest = $ref }
   else {
-    try { $text = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$($env:GH_OWNER)/$($env:GH_REPO)/$ref/scripts/surgemail-helper.ps1" -Headers (Get-AuthHeaders) -ErrorAction Stop; $m=[regex]::Match($text,'Version:\s*(\d+\.\d+\.\d+)'); if($m.Success){ $latest="v"+$m.Groups[1].Value } } catch { }
+    try { $text = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$($env:GH_OWNER)/$($env:GH_REPO)/$ref/scripts/surgemail-helper.ps1" -Headers (Get-AuthHeaders) -ErrorAction Stop; $m=[regex]::Match($text,'Version:\s*(\d+\.\d+\.\d+)'); if($m.Success){ $latest="v"+$m.Groups[1].Value } } catch {}
   }
   if (-not $latest) { return }
   switch (Compare-Versions $HelperVersion $latest) {
@@ -69,7 +83,9 @@ function Self-Update([string]$Ref) {
   Move-Item -Path $tmp -Destination $target -Force
   Write-Host "Helper updated successfully to ref: $Ref"
 }
-if (-not $NoSelfCheck) { try { Self-Check-Update } catch { } }
+
+if (-not $NoSelfCheck) { try { Self-Check-Update } catch {} }
+
 switch ($Command) {
   "status" { if (Is-Running) { "SurgeMail: RUNNING" } else { "SurgeMail: STOPPED" }; "Version: $(Get-Version)"; "Helper: v$HelperVersion" }
   "start"  { if (Is-Running) { "Already running." } else { Start-SM; Start-Sleep -Seconds 2; if (Is-Running) { "Started." } else { throw "Failed to start." } } }
@@ -81,5 +97,17 @@ switch ($Command) {
   "update"  { $prev = Get-Version; "Previous version: $prev"; "1) Downloading installer..."; "2) Stopping service (graceful)..."; & $PSCommandPath -Command stop -Tellmail $Tellmail -Service $Service; "3) Running installer... (hook here)"; "4) Installer complete."; "5) Post-install checks..."; "6) Starting SurgeMail (only if not running)"; if (Is-Running) { "SurgeMail already running after install. Skipping start." } else { Start-SM }; Start-Sleep -Seconds 2; $now = Get-Version; "Current version: $now"; if (Is-Running) { "Update complete and service is running." } else { throw "Update finished but service is NOT running." } }
   "self-check-update" { Self-Check-Update }
   "self-update" { Self-Update -Ref $Tag }
-  default { "Use -Command with one of: status,start,stop,strong_stop,restart,reload,check-update,update,self-check-update,self-update" }
+  "diagnostics" {
+    "=== SurgeMail Helper Diagnostics ==="
+    "Helper version : v$HelperVersion"
+    "Script path    : $($MyInvocation.MyCommand.Path)"
+    "Service name   : $Service"
+    "tellmail bin   : $Tellmail (found: $([bool](Get-Command $Tellmail -ErrorAction SilentlyContinue)))"
+    "Service exists : $([bool](Get-Service -Name $Service -ErrorAction SilentlyContinue))"
+    "Running        : $(Is-Running)"
+    "GH_OWNER/REPO  : $($env:GH_OWNER) / $($env:GH_REPO)"
+  }
+  "version" { "v$HelperVersion" }
+  "where"   { "Script: $($MyInvocation.MyCommand.Path)" }
+  default { "Use -Command with one of: status,start,stop,strong_stop,restart,reload,check-update,update,self-check-update,self-update,diagnostics,version,where" }
 }
