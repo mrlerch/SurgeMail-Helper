@@ -6,7 +6,7 @@ Cross‑platform management helper for SurgeMail with **simple CLI**, **robust d
 - Windows: `scripts/surgemail-helper.ps1` with `scripts/surgemail.bat` and **legacy** `scripts/surgemail-helper.bat` shims
 - **No `.github/`** directory included to keep zip drop‑ins in sync with your local repo
 
-Current helper version: **1.14.4**
+Current helper version: **1.14.2**
 
 ## Install
 
