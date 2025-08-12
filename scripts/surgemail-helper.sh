@@ -1,11 +1,43 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Surgemail Control & Updater (Unix)
-# Version: 1.14.7 (2025-08-10)
+# SurgeMail Helper: Control & Updater (Unix)
+# Version: 1.14.8 (2025-08-12)
 #
 # ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
 #
+# SurgeMail Helper — v1.14.8
+#
+# INSTALL:
+# Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
+# you may opt to cd to SurgeMail-Helper and then run the the command below.
+#   sudo ln -sf scripts/surgemail-helper.sh /usr/local/bin/surgemail
+# Please make sure that /usr/local/bin is in your executable path. If you get the following error:
+#   bash: surgemail: command not found
+# you need to add this line below to your .bashrc file (in the user's home directory)
+#   export PATH="/usr/local/bin:$PATH"
+#
+# See CHANGELOG.md for details. Use symlink install:
 # Changelog (embedded summary; see external CHANGELOG.md if bundled)
+# v1.14.8 (2025-08-12)
+#   - Implemented short flags routing (-s, -r, -u, -d, -v, -w, -h) and documented them.
+#   - Router now includes where/diagnostics/self_check_update/self_update and help aliases.
+#   - Restored and preserved 1.13.2 `update` and `check-update` flows and helpers.
+#   - `self_check_update` always prints feedback; `self_update` prompts on downgrade.
+#   - `where` labels updated (surgemail helper command, SurgeMail Server directory).
+#   - README and man page updated.
+# v1.14.6 (2025-08-11)
+#   - Implement server `check_update` via `tellmail status` with page fallback.
+#   - Fix `is_running` with 10s wait; adjust `start`/`stop`/`reload`/`strong_stop` behavior.
+#   - Add short flags and `man` command; implement helper `self_*` clone vs ZIP logic.
+# v1.14.2 (2025-08-10)
+# Fixed
+#   - `diagnostics` now runs cleanly on hosts **without** SurgeMail installed; no syntax errors and no hard failures.
+#   - Safer command probes (status/version checks) won’t error if `tellmail`/`surgemail`/service managers are missing.
+# Improved
+#   - Updated README with **diagnostics** documentation and examples.
+# v1.14.1 (2025-08-10)
+#   - Restored full helper with verbose diagnostics, locking & self‑update flow.
+#   - Windows PowerShell and batch wrapper synced.
 # v1.13.2 (2025-08-10)
 #   - UPDATE: In `update` Step 6, only start SurgeMail if it's not already running
 #             at the new version (install.sh typically restarts it). If running
@@ -30,17 +62,37 @@
 #   - `stop` frees all standard mail/admin ports.
 # v1.10.0 (2025-08-10)
 #   - Introduced `--api` unattended installer driving (requires `expect` or `socat` on Unix).
+# v1.6.0 (2025-08-09)
+#   - Smoother output: pre-check common ports and summarize blockers
+#   - Optional --verbose to stream installer/start output; otherwise capture to files
+#   - Cleaner status messages for start/stop/restart/reload
+# v1.5.0 (2025-08-09)
+#   - API mode for update: --version <ver> (e.g., 80e) and --os <target>
+#   - Interactive prompts when values omitted; URL building per OS family
+#   - Windows artifacts are downloaded but not executed (manual step)
+# v1.4.0 (2025-08-09)
+#   - Health verification after start (tellmail/PID/HTTP)
+#   - Conditional extra stop+start when initial start looks unhealthy
+# v1.3.0 (2025-08-09)
+#   - Unified single script: command router (update/stop/start/restart/reload)
+#   - Human-friendly explanations after each command
+# v1.2.1 (2025-08-09)
+#   - Robust --dry-run flow (creates non-empty placeholder; skips strict size check)
+#   - Avoid heredoc pitfalls; safer printing
+# v1.2.0 (2025-08-09)
+#   - Added -h/--help for update; --dry-run; wget progress auto-detect
+# v1.1.0 (2025-08-09)
+#   - Safer update flow: set -euo pipefail; sudo/root check; mktemp workspace
+#   - URL HEAD check; tar -xzf; strict quoting; traps/cleanup
+# v1.0.0 (2025-08-09)
+#   - Initial dispatcher and basic update/start/stop hooks
 # ============================================================================
 
 set -euo pipefail
-SCRIPT_VERSION="1.14.7"
+HELPER_VERSION="1.14.8"
+SCRIPT_VERSION="1.14.8"
 
 # --- config ---
-
-# --- GitHub self-update settings ---
-GH_OWNER="${GH_OWNER:-mrlerch}"
-GH_REPO="${GH_REPO:-SurgeMail-Helper}"
-HELPER_VERSION="1.14.7"
 SURGEMAIL_DIR="/usr/local/surgemail"
 STOP_CMD="$SURGEMAIL_DIR/surgemail_stop.sh"
 START_CMD="$SURGEMAIL_DIR/surgemail_start.sh"
@@ -50,9 +102,14 @@ CHECK_PORTS="25 465 587 110 143 993 995 7025"
 VERBOSE=${VERBOSE:-0}  # 0=quiet, 1=verbose
 
 # --- helpers ---
-
+# ---- GitHub helpers for self-update ----
+GH_OWNER="{GH_OWNER:-mrlerch}"
+GH_REPO="{GH_REPO:-SurgeMail-Helper}"
+smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
+smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
+is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.14.7" )
+  local args=(-H "User-Agent: surgemail-helper/1.14.8")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }
@@ -77,22 +134,7 @@ latest_ref() {
   fi
   return 1
 }
-# Compare semantic versions vA.B.C; prints LT/EQ/GT
-semver_cmp() {
-  local a="${1#v}"; local b="${2#v}"
-  local IFS=.
-  read -r a1 a2 a3 <<<"$a"
-  read -r b1 b2 b3 <<<"$b"
-  a1=${a1:-0}; a2=${a2:-0}; a3=${a3:-0}
-  b1=${b1:-0}; b2=${b2:-0}; b3=${b3:-0}
-  if ((10#$a1<10#$b1)); then echo LT; return; fi
-  if ((10#$a1>10#$b1)); then echo GT; return; fi
-  if ((10#$a2<10#$b2)); then echo LT; return; fi
-  if ((10#$a2>10#$b2)); then echo GT; return; fi
-  if ((10#$a3<10#$b3)); then echo LT; return; fi
-  if ((10#$a3>10#$b3)); then echo GT; return; fi
-  echo EQ
-}
+
 die() { echo "Error: $*" >&2; exit 1; }
 warn() { echo "Warning: $*" >&2; }
 vlog() { [[ "$VERBOSE" -eq 1 ]] && echo "[debug] $*"; }
@@ -107,6 +149,9 @@ trap 'cleanup' EXIT
 show_main_help() {
   cat <<'EOF'
 Usage: surgemail <command> [options]
+
+Short flags:
+  -s status, -r reload, -u update, -d diagnostics, -v version, -w where, -h help
 
 Commands:
   update        Download and install a specified SurgeMail version
@@ -738,14 +783,49 @@ cmd_version() {
   if [[ -n "$pretty" ]]; then
     echo "Installed SurgeMail version (parsed): $pretty"
   fi
+  echo "SurgeMail Helper script: v$HELPER_VERSION"
 }
 
 
-# ---------- Helper self-update ----------
-smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
-smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
-is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]]; }
+cmd_where() {
+  local script_path smcmd tell_path server_dir
+  script_path="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+  if command -v surgemail >/dev/null 2>&1; then smcmd="$(command -v surgemail)"; else smcmd="(not found)"; fi
+  tell_path="$(command -v tellmail 2>/dev/null || true)"
+  [[ -z "$tell_path" ]] && tell_path="(not found)"
+  server_dir="/usr/local/surgemail"
+  echo "helper directory           : $(dirname "$(dirname "$script_path")")"
+  echo "surgemail command          : $smcmd (surgemail helper command)"
+  echo "tellmail path              : $tell_path"
+  echo "SurgeMail Server directory : $server_dir"
+}
 
+
+cmd_diagnostics() {
+  echo "=== SurgeMail Helper Diagnostics ==="
+  echo "Helper version : v${HELPER_VERSION:-unknown}"
+  echo "Script path    : $(readlink -f "$0" 2>/dev/null || echo "$0")"
+  echo "Service name   : surgemail"
+  local tbin="$(command -v tellmail 2>/dev/null || true)"
+  echo "tellmail bin   : ${tbin:-tellmail} (found: $(command -v tellmail >/dev/null 2>&1 && echo yes || echo no))"
+  local sm="direct"; command -v systemctl >/dev/null 2>&1 && sm="systemd" || (command -v service >/dev/null 2>&1 && sm="service" || true)
+  echo "Service mgr    : $sm"
+  local running="no"; if command -v tellmail >/dev/null 2>&1 && tellmail status >/dev/null 2>&1; then running="yes"; fi
+  echo "Running        : $running"
+  echo "GH_OWNER/REPO  : ${GH_OWNER:-mrlerch} / ${GH_REPO:-SurgeMail-Helper}"
+}
+
+
+compare_versions_semver() {
+  local a="${1#v}" b="${2#v}" IFS=.
+  local -a A=($a) B=($b)
+  for ((i=0;i<3;i++)); do
+    local ai=${A[i]:-0} bi=${B[i]:-0}
+    if ((10#$ai > 10#$bi)); then return 1; fi
+    if ((10#$ai < 10#$bi)); then return 2; fi
+  done
+  return 0
+}
 cmd_self_check_update() {
   local ref latest_v txt
   ref="$(latest_ref || true)"
@@ -757,30 +837,25 @@ cmd_self_check_update() {
     latest_v="$ref"
   else
     txt=$(curl -sSfL -H "User-Agent: surgemail-helper/$HELPER_VERSION" "https://raw.githubusercontent.com/$GH_OWNER/$GH_REPO/$ref/scripts/surgemail-helper.sh" 2>/dev/null || true)
-    latest_v=$(printf '%s\n' "$txt" | grep -Eo 'HELPER_VERSION="?([0-9]+\.[0-9]+\.[0-9]+)"?' -m1 | sed -E 's/.*"?([0-9]+\.[0-9]+\.[0-9]+)".*/v\1/')
+    latest_v=$(printf '%s\n' "$txt" | grep -Eo 'HELPER_VERSION="?([0-9]+\.[0-9]+\.[0-9]+)\"?' -m1 | sed -E 's/.*\"?([0-9]+\.[0-9]+\.[0-9]+)\"?.*/v\1/')
   fi
   [[ -z "$latest_v" ]] && latest_v="v0.0.0"
-
-  local rel="$(semver_cmp "v$SCRIPT_VERSION" "$latest_v")"
-  if [[ "$rel" == "LT" ]]; then
-    echo "You are running SurgeMail Helper script v$SCRIPT_VERSION. The latest version is $latest_v."
-    if [[ -t 0 && -t 1 ]]; then
+  compare_versions_semver "v$HELPER_VERSION" "$latest_v"
+  case $? in
+    2)
+      echo "You are running SurgeMail Helper script v$HELPER_VERSION. The latest version is $latest_v."
       read -r -p "Would you like to upgrade? y/n " ans
-      if [[ "${ans,,}" =~ ^y ]]; then cmd_self_update "$latest_v"; else echo "Ok, maybe next time. Thanks for using SurgeMail Helper."; fi
-    else
-      echo "Run: $0 self_update $latest_v"
-    fi
-  elif [[ "$rel" == "GT" ]]; then
-    echo "Local version (v$SCRIPT_VERSION) is newer than GitHub latest ($latest_v)."
-    if [[ -t 0 && -t 1 ]]; then
-      read -r -p "Downgrade to $latest_v? y/n " ans
-      if [[ "${ans,,}" =~ ^y ]]; then cmd_self_update "$latest_v"; else echo "Keeping current version."; fi
-    fi
-  else
-    echo "You are running the latest SurgeMail Helper script version v$SCRIPT_VERSION"
-  fi
+      if [[ "$ans" == "y" || "$ans" == "Y" ]]; then
+        cmd_self_update "$latest_v"
+      else
+        echo "Ok, maybe next time. Thanks for using SurgeMail Helper."
+      fi
+      ;;
+    0|1)
+      echo "You are running the latest SurgeMail Helper script version v$HELPER_VERSION"
+      ;;
+  esac
 }
-
 download_and_overlay_zip() {
   local ref="$1"
   local tmpzip tmpdir basedir
@@ -797,30 +872,25 @@ download_and_overlay_zip() {
   inner="$(find "$tmpdir" -maxdepth 1 -type d | tail -n +2 | head -n1)"
   cp -a "$inner"/. "$basedir"/
 }
-
 cmd_self_update() {
   local ref="${1:-}"
   [[ -z "$ref" ]] && ref="$(latest_ref || true)"
   [[ -z "$ref" ]] && { echo "Could not determine latest release/tag/default branch from GitHub."; return 1; }
-
-  # Determine target version if ref is branch
-  local target_v="$ref"
-  if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    local txt
+  local target_ver=""
+  if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then target_ver="$ref"
+  else
     txt=$(curl -sSfL -H "User-Agent: surgemail-helper/$HELPER_VERSION" "https://raw.githubusercontent.com/$GH_OWNER/$GH_REPO/$ref/scripts/surgemail-helper.sh" 2>/dev/null || true)
-    target_v=$(printf '%s\n' "$txt" | grep -Eo 'HELPER_VERSION="?([0-9]+\.[0-9]+\.[0-9]+)"?' -m1 | sed -E 's/.*"?([0-9]+\.[0-9]+\.[0-9]+)".*/v\1/')
-    [[ -z "$target_v" ]] && target_v="v0.0.0"
+    target_ver=$(printf '%s\n' "$txt" | grep -Eo 'HELPER_VERSION="?([0-9]+\.[0-9]+\.[0-9]+)\"?' -m1 | sed -E 's/.*\"?([0-9]+\.[0-9]+\.[0-9]+)\"?.*/v\1/')
   fi
-
-  # Guard against unintended downgrade without prompt
-  local rel="$(semver_cmp "v$SCRIPT_VERSION" "$target_v")"
-  if [[ "$rel" == "GT" ]] && [[ -t 0 && -t 1 ]]; then
-    echo "Requested version $target_v is older than current v$SCRIPT_VERSION."
-    read -r -p "Downgrade anyway? y/n " ans
-    [[ "${ans,,}" =~ ^y ]] || { echo "Aborting downgrade."; return 1; }
+  [[ -z "$target_ver" ]] && target_ver="v0.0.0"
+  # Prompt before downgrade
+  compare_versions_semver "$target_ver" "v$HELPER_VERSION"
+  if [[ $? -eq 2 ]]; then
+    echo "The requested target ($target_ver) is older than current (v$HELPER_VERSION)."
+    read -r -p "Do you want to downgrade? y/n " ans
+    [[ "$ans" =~ ^[yY]$ ]] || { echo "Aborting downgrade."; return 1; }
   fi
-
-  if [[ -d "$(smh_base_dir)/.git" ]]; then
+  if is_git_checkout; then
     ( cd "$(smh_base_dir)" && git fetch --tags && git checkout "$ref" || true && git pull --ff-only ) || { echo "Git update failed."; return 1; }
     echo "Helper updated via git to $ref"
   else
@@ -830,66 +900,33 @@ cmd_self_update() {
 }
 
 
-# ------------- Short flags mapping -------------
-if [[ "${1:-}" =~ ^- ]]; then
+# ----------------------- SHORT_FLAG_ROUTER -----------------------
+if [[ $# -eq 1 ]]; then
   case "$1" in
-    -s) set -- status "${@:2}" ;;
-    -r) set -- reload "${@:2}" ;;
-    -u) set -- update "${@:2}" ;;
-    -d) set -- diagnostics "${@:2}" ;;
-    -v) set -- version "${@:2}" ;;
-    -w) set -- where "${@:2}" ;;
-    -h) set -- -h "${@:2}" ;;
+    -s) set -- status ;;
+    -r) set -- reload ;;
+    -u) set -- update ;;
+    -d) set -- diagnostics ;;
+    -v) set -- version ;;
+    -w) set -- where ;;
+    -h) set -- --help ;;
   esac
 fi
 
 # --------------------------- Router ----------------------------
 case "${1:-}" in
-  update)        shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_update "$@";;
-  check-update)  shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_check_update "$@";;
-  stop)          shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_stop "$@";;
-  start)         shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_start "$@";;
-  restart)       shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_restart "$@";;
-  reload)        shift || true; cmd_reload "$@";;
-  status)        shift || true; cmd_status "$@";;
-  version)       shift || true; cmd_version "$@";;
-  -h|--help|-help|"") show_main_help ;;
+  update|-u)        shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_update "$@";;
+  check-update)     shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_check_update "$@";;
+  stop)             shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_stop "$@";;
+  start)            shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_start "$@";;
+  restart)          shift || true; for a in "$@"; do if [[ "$a" == "--verbose" ]]; then VERBOSE=1; fi; done; cmd_restart "$@";;
+  reload|-r)        shift || true; cmd_reload "$@";;
+  status|-s)        shift || true; cmd_status "$@";;
+  version|-v)       shift || true; cmd_version "$@";;
+  where|-w)         shift || true; cmd_where "$@";;
+  diagnostics|-d)   shift || true; cmd_diagnostics "$@";;
+  self_check_update) shift || true; cmd_self_check_update "$@";;
+  self_update)       shift || true; cmd_self_update "$@";;
+  -h|--help|-help|help|man|"") show_main_help ;;
   *) echo "Unknown command: $1" >&2; exit 1 ;;
 esac
-have_cmd() { command -v "$1" >/dev/null 2>&1; }
-
-
-cmd_where() {
-  local script_path base_dir smbin tell_path label bin_path resolved linkto
-  script_path="$(readlink -f "$0" 2>/dev/null || echo "$0")"
-  base_dir="$(dirname "$(dirname "$script_path")")"
-  bin_path="$(command -v surgemail 2>/dev/null || true)"
-  if [[ -n "$bin_path" ]]; then
-    resolved="$(readlink -f "$bin_path" 2>/dev/null || echo "$bin_path")"
-    linkto="$(readlink "$bin_path" 2>/dev/null || true)"
-    if [[ "$resolved" == "$script_path" ]] || grep -qi 'surgemail-helper' <<<"$resolved"; then
-      label="surgemail helper command"
-    else
-      label="surgemail binary"
-    fi
-    smbin="$bin_path ($label)"
-  else
-    smbin="(not found)"
-  fi
-  tell_path="$(command -v tellmail 2>/dev/null || true)"
-  [[ -z "$tell_path" ]] && tell_path="(not found)"
-  echo "helper directory           : $base_dir"
-  echo "surgemail command          : $smbin"
-  echo "tellmail path              : $tell_path"
-  echo "SurgeMail Server directory : /usr/local/surgemail"
-}
-
-
-man_cmd() {
-  if command -v man >/dev/null 2>&1 && [[ -r "/usr/local/share/man/man1/surgemail.1" ]]; then
-    man surgemail
-  else
-    show_main_help
-  fi
-}
-
