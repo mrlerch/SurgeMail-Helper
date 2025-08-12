@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
 # SurgeMail Helper: Control & Updater (Unix)
-# Version: 1.14.8 (2025-08-12)
+# Version: 1.14.10 (2025-08-12)
 #
 # ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
 #
-# SurgeMail Helper — v1.14.8
+# SurgeMail Helper — v1.14.10
 #
 # INSTALL:
 # Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
@@ -89,8 +89,8 @@
 # ============================================================================
 
 set -euo pipefail
-HELPER_VERSION="1.14.8"
-SCRIPT_VERSION="1.14.8"
+HELPER_VERSION="1.14.10"
+SCRIPT_VERSION="1.14.10"
 
 # --- config ---
 SURGEMAIL_DIR="/usr/local/surgemail"
@@ -109,7 +109,7 @@ smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.14.8")
+  local args=(-H "User-Agent: surgemail-helper/1.14.10")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }

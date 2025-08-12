@@ -89,3 +89,9 @@
 
 ## [1.0.0] - 2025-08-09
 - Initial dispatcher and basic update/start/stop hooks
+
+## [1.14.10] - 2025-08-12
+- Version bump only; kept *all* existing Bash functions and logic intact.
+- Synced PowerShell helper with Bash commands and short flags (no impact to Bash).
+- CHANGELOG appended; prior entries preserved.
+

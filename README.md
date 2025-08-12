@@ -1,13 +1,11 @@
+# SurgeMail Helper — v1.14.10
 
-# SurgeMail Helper — v1.14.8
-
-## Install (per your requested layout)
-Create the symlink like so:
+## Install (symlink)
 ```bash
-sudo ln -sf /usr/local/bin/surgemail scripts/surgemail_helper.sh
+# from inside SurgeMail-Helper/
+sudo ln -sf scripts/surgemail-helper.sh /usr/local/bin/surgemail
 ```
+Ensure `/usr/local/bin` is in your `$PATH`.
 
 ## Short flags
 `-s` status, `-r` reload, `-u` update, `-d` diagnostics, `-v` version, `-w` where, `-h` help
-
-See `surgemail -h` for full command list.
