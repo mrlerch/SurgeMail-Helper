@@ -1,7 +1,15 @@
-# SurgeMail Helper
+# SurgeMail Helper — v1.14.6
 
-Cross‑platform management helper for SurgeMail with **simple CLI**, **robust diagnostics**, **service control**, and **self‑update** for the helper itself.
+Full drop‑in build with:
+- New `is_running` (10s wait + `tellmail status` parsing)
+- Fixed `start`/`stop`/`reload`/`strong_stop`
+- Implemented `check_update` (prefers `tellmail status`; fallback to download page)
+- `self_check_update` / `self_update` support clone vs ZIP installs
+- Short flags: -s -r -u -d -v -w -h
+- `man` subcommand with `docs/surgemail.1`
+- No `.github/` in the package
 
+<<<<<<< HEAD
 - Unix: `scripts/surgemail-helper.sh` (install as `/usr/local/bin/surgemail` → run `surgemail <command> [options]`)
 - Windows: `scripts/surgemail-helper.ps1` with `scripts/surgemail.bat` and **legacy** `scripts/surgemail-helper.bat` shims
 - **No `.github/`** directory included to keep zip drop‑ins in sync with your local repo
@@ -11,61 +19,9 @@ Current helper version: **1.14.2**
 ## Install
 
 ### Unix/Linux
+=======
+Recommended install (symlink):
+>>>>>>> f0175d6 (feat: command alias + self-update + startup check (v1.14.6))
 ```bash
-sudo install -m 0755 scripts/surgemail-helper.sh /usr/local/bin/surgemail
-surgemail -h
-surgemail diagnostics
+sudo ln -sf /path/to/SurgeMail-Helper/scripts/surgemail-helper.sh /usr/local/bin/surgemail
 ```
-
-### Windows
-Place the `scripts` folder on PATH (e.g., `C:\Tools\SurgeMailHelper\scripts`). Both shims work:
-
-```powershell
-surgemail -Command -h
-surgemail-helper -Command diagnostics   # legacy shim name
-```
-
-## Usage — Unix
-```bash
-surgemail <command> [options]
-
-# examples
-surgemail status
-surgemail restart
-surgemail update --unattended
-surgemail self-check-update
-surgemail self-update
-surgemail self-update v1.14.2
-surgemail diagnostics
-```
-
-Options:
-- `--tellmail <path>`  | `--service <name>` | `--unattended` | `--no-selfcheck`
-
-## Usage — Windows
-```powershell
-surgemail -Command <command> [-Tellmail <path>] [-Service <name>] [-Unattended] [-NoSelfCheck] [-Tag <tag>]
-surgemail -Command self-check-update
-surgemail -Command self-update -Tag v1.14.2
-surgemail -Command diagnostics
-```
-
-## Diagnostics
-`diagnostics` is **safe on machines without SurgeMail**. It never hard‑fails and prints:
-- helper version, script path
-- service name, service manager (systemd/service/direct or Windows Service)
-- `tellmail` / `surgemail` discovery (found yes/no)
-- running state (best effort)
-- GH owner/repo for self‑update
-- config search paths
-- debug flag
-
-## Self‑Update
-Looks up **releases/latest → tags → default branch**, then fetches:
-`https://raw.githubusercontent.com/mrlerch/SurgeMail-Helper/<ref>/scripts/surgemail-helper.(sh|ps1)`
-
-- Sets `User-Agent`; honors `GH_TOKEN`
-- Startup self‑check prints a one‑line notice if a newer helper exists (suppress via `--no-selfcheck` / `-NoSelfCheck`)
-
-## License
-Root includes your **LICENSE** and a copy of **Mozilla Public License 2.0 (MPL)** (file named exactly `Mozilla Public License 2.0 (MPL)`).
