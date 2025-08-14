@@ -1,6 +1,17 @@
-
 # Changelog
 
+## [1.14.10] - 2025-08-12
+INSTALL:
+Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
+you may opt to cd to SurgeMail-Helper and then run the the command below.
+  sudo ln -sf scripts/surgemail-helper.sh /usr/local/bin/surgemail
+Please make sure that /usr/local/bin is in your executable path. If you get the following error:
+  bash: surgemail: command not found
+ you need to add this line below to your .bashrc file (in the user's home directory)
+  export PATH="/usr/local/bin:$PATH"
+
+ See CHANGELOG.md for details. Use symlink install:
+ Changelog (embedded summary; see external CHANGELOG.md if bundled)
 ## [1.14.8] - 2025-08-12
 - Implemented short flags routing (-s, -r, -u, -d, -v, -w, -h) and documented them.
 - Router now includes where/diagnostics/self_check_update/self_update and help aliases.
@@ -95,3 +106,10 @@
 - Synced PowerShell helper with Bash commands and short flags (no impact to Bash).
 - CHANGELOG appended; prior entries preserved.
 
+
+
+## [1.14.11] - 2025-08-14
+- stop: fixed AWK syntax errors by rewriting `list_blockers_detailed()` to use lsof → ss → netstat → fuser fallbacks and feed clean PID/command/port lines.
+- start: improved readiness detection. `is_surgemail_ready()` now waits 5s and treats “Bad Open Response” as stopped; prints clearer start messages and confirms health after start.
+- PowerShell: added `Is-Running` with the same semantics; wrapped the `start` command with equivalent pre/post checks.
+- Bumped HELPER_VERSION, SCRIPT_VERSION, header “Version:” and User-Agent to 1.14.11.

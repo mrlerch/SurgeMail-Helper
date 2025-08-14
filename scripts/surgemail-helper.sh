@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
 # SurgeMail Helper: Control & Updater (Unix)
-# Version: 1.14.10 (2025-08-12)
+# Version: 1.14.11 (2025-08-14)
 #
 # ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
 #
-# SurgeMail Helper — v1.14.10
+# SurgeMail Helper — v1.14.11
 #
 # INSTALL:
 # Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
@@ -89,8 +89,8 @@
 # ============================================================================
 
 set -euo pipefail
-HELPER_VERSION="1.14.10"
-SCRIPT_VERSION="1.14.10"
+HELPER_VERSION="1.14.11"
+SCRIPT_VERSION="1.14.11"
 
 # --- config ---
 SURGEMAIL_DIR="/usr/local/surgemail"
@@ -109,7 +109,7 @@ smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.14.10")
+  local args=(-H "User-Agent: surgemail-helper/1.14.11")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }
@@ -182,12 +182,26 @@ EOF
 
 # ---------- status & waits ----------
 is_surgemail_ready() {
-  if command -v tellmail >/dev/null 2>&1 && tellmail status >/dev/null 2>&1; then return 0; fi
-  if [[ -f "$PID_FILE" ]]; then
-    local pid; pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && return 0
+  echo "Checking status..."
+  sleep 5
+  # Default tellmail if TELLMAIL_BIN is unset
+  local _tell="${TELLMAIL_BIN:-tellmail}"
+  if ! command -v "$_tell" >/dev/null 2>&1; then
+    if [[ -f "$PID_FILE" ]]; then
+      local pid; pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+      [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && return 0
+    fi
+    have curl && curl -sSf -o /dev/null --max-time 2 "$ADMIN_URL" 2>/dev/null && return 0
+    return 1
   fi
-  if have curl && curl -sSf -o /dev/null --max-time 2 "$ADMIN_URL" 2>/dev/null; then return 0; fi
+  local out
+  out="$("$_tell" status 2>/dev/null || true)"
+  if echo "$out" | grep -q "Bad Open Response"; then
+    return 1
+  fi
+  if echo "$out" | grep -q "SurgeMail Version"; then
+    return 0
+  fi
   return 1
 }
 wait_for_ready()   { local t=0; local timeout="${1:-45}"; while ((t<timeout)); do is_surgemail_ready && return 0; sleep 1; t=$((t+1)); done; return 1; }
@@ -229,23 +243,64 @@ strong_stop() {
 
 # List blockers: prints "pid cmd port"
 list_blockers_detailed() {
+  # Prefer lsof
   if command -v lsof >/dev/null 2>&1; then
     for p in $CHECK_PORTS; do
-      lsof -nP -iTCP:"$p" -sTCP:LISTEN 2>/dev/null | awk -v port="$p" 'NR>1 {print $2, $1, port}'
+      # Emit: PID CMD PORT
+      lsof -nP -iTCP:"$p" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $2, $1, '"'"'"$p"'"'"'}'
     done
     return 0
-  elif command -v ss >/dev/null 2>&1; then
-    ss -ltnp 2>/dev/null | awk '
-      /LISTEN/ && match($4, /:([0-9]+)$/, m) {
-        port=m[1];
-        if (port ~ /^(25|465|587|110|143|993|995|7025)$/) {
-          proc="unknown"; pid="?";
-          if (match($0,/users:\(\("([^"]+)".*pid=([0-9]+)/,a)){proc=a[1]; pid=a[2]}
-          print pid, proc, port
-        }
-      }'
+  fi
+
+  # Fallback: ss
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | while read -r line; do
+      case "$line" in
+        *LISTEN*)
+          port="${line##*:}"; port="${port%% *}"
+          case "$port" in 25|465|587|110|143|993|995|7025)
+            pid="$(printf "%s\n" "$line" | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | head -n1)"
+            proc="$(printf "%s\n" "$line" | sed -n 's/.*users:(("\{0,1\}\([^"]*\).*/\1/p' | head -n1)"
+            [ -z "$proc" ] && proc="unknown"
+            [ -z "$pid" ] && pid="?"
+            echo "$pid" "$proc" "$port"
+          ;;
+          esac
+        ;;
+      esac
+    done
     return 0
   fi
+
+  # Fallback: netstat
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null | while read -r line; do
+      case "$line" in
+        *LISTEN*)
+          port="${line##*:}"; port="${port%% *}"
+          case "$port" in 25|465|587|110|143|993|995|7025)
+            pid="$(printf "%s\n" "$line" | awk '{print $7}' | cut -d/ -f1)"
+            [ -z "$pid" ] && pid="?"
+            proc="unknown"
+            echo "$pid" "$proc" "$port"
+          ;;
+          esac
+        ;;
+      esac
+    done
+    return 0
+  fi
+
+  # Fallback: fuser
+  if command -v fuser >/dev/null 2>&1; then
+    for p in $CHECK_PORTS; do
+      fuser -n tcp "$p" 2>/dev/null | tr ' ' '\n' | while read -r pid; do
+        [ -n "$pid" ] && echo "$pid unknown $p"
+      done
+    done
+    return 0
+  fi
+
   return 1
 }
 
@@ -723,6 +778,12 @@ cmd_stop() {
 }
 
 cmd_start() {
+  if is_surgemail_ready; then
+    echo "SurgeMail server is already running (or healthy). Proceeding to start anyway."
+  else
+    echo "SurgeMail server is currently stopped. Proceeding to start server."
+  fi
+
   local FORCE=0; while [[ $# -gt 0 ]]; do case "$1" in --force) FORCE=1; shift ;; --verbose) VERBOSE=1; shift ;; *) shift ;; esac; done
   need_root; [[ -x "$START_CMD" ]] || die "Start script missing: $START_CMD"
   echo "Requested: start SurgeMail."
@@ -730,6 +791,13 @@ cmd_start() {
   if [[ "$FORCE" -eq 1 ]]; then if force_kill_all_blockers; then vlog "Forced kill of blockers before start."; fi; fi
   if [[ $VERBOSE -eq 1 ]]; then "$START_CMD" || true; else "$START_CMD" >"${WORKDIR:-/tmp}/start.manual.out" 2>&1 || true; echo "(details: ${WORKDIR:-/tmp}/start.manual.out)"; fi
   if wait_for_ready 45; then echo "Result: SurgeMail started and is healthy."; else echo "Result: start issued, but not healthy within 45s. Check $SURGEMAIL_DIR/logs."; exit 1; fi
+
+  sleep 5
+  if is_surgemail_ready; then
+    echo "Result: SurgeMail Server started and is healthy."
+  else
+    echo "Result: start SurgeMail Server issued, but not running/healthy. Check $SURGEMAIL_DIR/logs."
+  fi
 }
 
 cmd_restart() {

@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   SurgeMail Helper (Windows, PowerShell)
-  Version: 1.14.10
+  Version: 1.14.11
 #>
 
 param(
@@ -13,7 +13,7 @@ param(
   [string]$Tag
 )
 
-$HelperVersion = "1.14.10"
+$HelperVersion = "1.14.11"
 
 function Have-Cmd($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
 function Get-HelperScript { return $MyInvocation.MyCommand.Path }
@@ -195,4 +195,13 @@ switch ($Command) {
   "self_update" { Self-Update }
   "help" { Show-Help }
   default { Show-Help }
+}
+
+function Is-Running {
+  Start-Sleep -Seconds 5
+  $tm = if ($null -ne $Tellmail -and $Tellmail) { $Tellmail } else { "tellmail" }
+  if (-not (Get-Command $tm -ErrorAction SilentlyContinue)) { return $false }
+  try { $out = & $tm status 2>$null } catch { return $false }
+  if ($out -match "Bad Open Response") { return $false }
+  return ($out -match "SurgeMail Version")
 }
