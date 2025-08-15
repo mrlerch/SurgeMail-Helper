@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   SurgeMail Helper (Windows, PowerShell)
-  Version: 1.14.11
+  Version: 1.14.12
 #>
 
 param(
@@ -13,7 +13,7 @@ param(
   [string]$Tag
 )
 
-$HelperVersion = "1.14.11"
+$HelperVersion = "1.14.12"
 
 function Have-Cmd($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
 function Get-HelperScript { return $MyInvocation.MyCommand.Path }
@@ -205,3 +205,37 @@ function Is-Running {
   if ($out -match "Bad Open Response") { return $false }
   return ($out -match "SurgeMail Version")
 }
+
+
+function Get-GHResponse {
+  param([string]$Url, [string]$Token)
+  $hdrs = @{ "Accept" = "application/vnd.github+json"; "User-Agent" = "surgemail-helper/1.14.12" }
+  if (-not $Token) { $Token = $env:GITHUB_TOKEN; if (-not $Token) { $Token = $env:GH_TOKEN } }
+  if ($Token) { $hdrs["Authorization"] = "Bearer $Token" }
+  try { return Invoke-RestMethod -Method GET -Uri $Url -Headers $hdrs -ErrorAction Stop } catch { return $null }
+}
+function Get-GHLatestReleaseTag { param([string]$Owner="mrlerch",[string]$Repo="SurgeMail-Helper",[string]$Token)
+  $j = Get-GHResponse -Url ("https://api.github.com/repos/0/1/releases/latest" -f $Owner,$Repo) -Token $Token
+  if ($j -and $j.tag_name) { return $j.tag_name } else { return $null }
+}
+function Get-GHFirstPrereleaseTag { param([string]$Owner="mrlerch",[string]$Repo="SurgeMail-Helper",[string]$Token)
+  $j = Get-GHResponse -Url ("https://api.github.com/repos/0/1/releases" -f $Owner,$Repo) -Token $Token
+  if ($j) { foreach ($r in $j) { if ($r.prerelease -and $r.tag_name) { return $r.tag_name } } }
+  return $null
+}
+function Get-GHDefaultBranch { param([string]$Owner="mrlerch",[string]$Repo="SurgeMail-Helper",[string]$Token)
+  $j = Get-GHResponse -Url ("https://api.github.com/repos/0/1" -f $Owner,$Repo) -Token $Token
+  if ($j -and $j.default_branch) { return $j.default_branch } else { return $null }
+}
+
+
+function Is-RunningQuiet {
+  $tm = if ($null -ne $Tellmail -and $Tellmail) { $Tellmail } else { "tellmail" }
+  try { $out = & $tm status 2>$null } catch { return $false }
+  if ($out -match "Bad Open Response") { return $false }
+  return ($out -match "SurgeMail Version")
+}
+
+# self_check_update  --channel <release|prerelease|dev> (default: release) --auto --quiet --token <gh_token>
+# self_update        --channel <release|prerelease|dev> (default: release) --auto --token <gh_token>
+# GitHub API unauthenticated by default; token via --token or $env:GITHUB_TOKEN / $env:GH_TOKEN.

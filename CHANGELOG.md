@@ -1,6 +1,12 @@
 # Changelog
 
 ## [1.14.10] - 2025-08-12
+(- Implemented missing GitHub helper functions for self_check_update/self_update with channels.
+- Default unauthenticated GitHub API; optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
+- Streamlined start output to avoid redundant checks/messages.
+- Updated help text in scripts to document options and token usage.
+)
+## [1.14.10] - 2025-08-12
 INSTALL:
 Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
 you may opt to cd to SurgeMail-Helper and then run the the command below.
@@ -113,3 +119,9 @@ Please make sure that /usr/local/bin is in your executable path. If you get the 
 - start: improved readiness detection. `is_surgemail_ready()` now waits 5s and treats “Bad Open Response” as stopped; prints clearer start messages and confirms health after start.
 - PowerShell: added `Is-Running` with the same semantics; wrapped the `start` command with equivalent pre/post checks.
 - Bumped HELPER_VERSION, SCRIPT_VERSION, header “Version:” and User-Agent to 1.14.11.
+
+
+## [1.14.12] - 2025-08-14
+- start: reduced duplicate status output; added quiet readiness probe to avoid redundant messages.
+- self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
+- PowerShell: aligned start messaging (quieter); notes added for 1.14.12.
