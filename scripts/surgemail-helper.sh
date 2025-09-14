@@ -931,6 +931,33 @@ compare_versions_semver() {
   done
   return 0
 }
+
+gh_first_prerelease_tag() {
+  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
+  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}/releases?per_page=10")"
+  # Find first object with "prerelease":true and extract its tag_name
+  echo "$json" | tr -d '\n' | sed -n 's/.*"prerelease":true[^}]*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
+}
+gh_http_get() {
+  # $1 = URL
+  local url="$1"
+  local ua="surgemail-helper/1.14.12"
+  if have curl; then
+    curl -fsSL -H "User-Agent: $ua" "$url" 2>/dev/null || true
+  else
+    wget -qO- --header="User-Agent: $ua" "$url" 2>/dev/null || true
+  fi
+}
+
+gh_latest_release_tag() {
+  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
+  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}/releases/latest")"
+  echo "$json" | tr -d '\n' | sed -n 's/.*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
+}
+
+
+
+
 cmd_self_check_update() {
   set +e
   local CHANNEL="release" AUTO=0 QUIET=0
@@ -1117,29 +1144,9 @@ case "${1:-}" in
 esac
 
 # --- v1.14.12 helpers ---
-gh_http_get() {
-  # $1 = URL
-  local url="$1"
-  local ua="surgemail-helper/1.14.12"
-  if have curl; then
-    curl -fsSL -H "User-Agent: $ua" "$url" 2>/dev/null || true
-  else
-    wget -qO- --header="User-Agent: $ua" "$url" 2>/dev/null || true
-  fi
-}
 
-gh_latest_release_tag() {
-  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
-  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}/releases/latest")"
-  echo "$json" | tr -d '\n' | sed -n 's/.*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
-}
 
-gh_first_prerelease_tag() {
-  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
-  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}/releases?per_page=10")"
-  # Find first object with "prerelease":true and extract its tag_name
-  echo "$json" | tr -d '\n' | sed -n 's/.*"prerelease":true[^}]*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
-}
+
 
 gh_default_branch() {
   local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
