@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
 # SurgeMail Helper: Control & Updater (Unix)
-# Version: 1.14.12 (2025-08-14)
+# Version: 1.14.12a (2025-09-14)
 #
 # ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
 #
-# SurgeMail Helper — v1.14.12
+# SurgeMail Helper — v1.14.12a
 #
 # INSTALL:
 # Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
@@ -18,6 +18,7 @@
 #
 # See CHANGELOG.md for details. Use symlink install:
 # Changelog (embedded summary; see external CHANGELOG.md if bundled)
+# v1.14.12a - fixed update code
 # v1.14.12 (- Implemented GitHub helpers for self_check_update/self_update (release/prerelease/dev).
 #   - Default unauthenticated GitHub API with optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
 #   - Streamlined start output (single pre-check and single final result).
@@ -97,8 +98,8 @@
 # ============================================================================
 
 set -euo pipefail
-HELPER_VERSION="1.14.12"
-SCRIPT_VERSION="1.14.12"
+HELPER_VERSION="1.14.12a"
+SCRIPT_VERSION="1.14.12a"
 
 # --- config ---
 SURGEMAIL_DIR="/usr/local/surgemail"
@@ -117,7 +118,7 @@ smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.14.12")
+  local args=(-H "User-Agent: surgemail-helper/1.14.12a")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }
@@ -941,7 +942,7 @@ gh_first_prerelease_tag() {
 gh_http_get() {
   # $1 = URL
   local url="$1"
-  local ua="surgemail-helper/1.14.12"
+  local ua="surgemail-helper/1.14.12a"
   if have curl; then
     curl -fsSL -H "User-Agent: $ua" "$url" 2>/dev/null || true
   else
@@ -1143,7 +1144,7 @@ case "${1:-}" in
   *) echo "Unknown command: $1" >&2; exit 1 ;;
 esac
 
-# --- v1.14.12 helpers ---
+# --- v1.14.12a helpers ---
 
 
 
