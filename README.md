@@ -1,4 +1,4 @@
-# SurgeMail Helper — v1.14.12
+# SurgeMail Helper — v1.14.12a
 
 ## Install (symlink)
 ```bash
