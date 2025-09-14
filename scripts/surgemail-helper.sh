@@ -185,6 +185,25 @@ warn() { echo "Warning: $*" >&2; }
 vlog() { [[ "$VERBOSE" -eq 1 ]] && echo "[debug] $*"; }
 need_root() { [ "$(id -u)" -eq 0 ] || die "Please run as root (sudo)."; }
 
+# Fallback help so we never crash if show_main_help is referenced before it's defined.
+# (Safe to keep even if you later add a richer help below; the router just calls this.)
+if ! declare -F show_main_help >/dev/null 2>&1; then
+  show_main_help() {
+    cat <<'EOF'
+surgemail – SurgeMail Helper
+
+Usage:
+  surgemail self_check_update [--channel <release|prerelease|dev>] [--auto] [--quiet] [--token <gh_token>]
+  surgemail self_update        [--channel <release|prerelease|dev>] [--auto] [--token <gh_token>]
+  surgemail debug-gh
+
+Notes:
+  • Provide a GitHub token via --token or env GH_TOKEN/GITHUB_TOKEN to avoid rate limits and access private/draft data.
+  • debug-gh prints network/tool availability and what the GitHub helpers see (release/prerelease/default branch).
+EOF
+  }
+fi
+
 
 # ---------- status & waits ----------
 is_surgemail_ready() {
@@ -924,6 +943,10 @@ cmd_self_check_update() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --channel) CHANNEL="${2:-release}"; shift 2 ;;
+      --token)
+        GH_TOKEN="${2:-}"; export GH_TOKEN
+        shift 2
+        ;;
       --auto) AUTO=1; shift ;;
       --quiet) QUIET=1; shift ;;
       --verbose) VERBOSE=1; shift ;;
@@ -1010,6 +1033,10 @@ cmd_self_update() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --channel) CHANNEL="${2:-release}"; shift 2 ;;
+      --token)
+        GH_TOKEN="${2:-}"; export GH_TOKEN
+        shift 2
+        ;;
       --auto) AUTO=1; shift ;;
       --verbose) VERBOSE=1; shift ;;
       -h|--help) echo "Usage: surgemail self_update [--channel release|prerelease|dev] [--auto]"; set -e; return 0 ;;
