@@ -189,19 +189,67 @@ need_root() { [ "$(id -u)" -eq 0 ] || die "Please run as root (sudo)."; }
 # (Safe to keep even if you later add a richer help below; the router just calls this.)
 if ! declare -F show_main_help >/dev/null 2>&1; then
   show_main_help() {
-    cat <<'EOF'
-surgemail – SurgeMail Helper
+  cat <<'EOF'
+Usage: surgemail <command> [options]
 
-Usage:
-  surgemail self_check_update [--channel <release|prerelease|dev>] [--auto] [--quiet] [--token <gh_token>]
-  surgemail self_update        [--channel <release|prerelease|dev>] [--auto] [--token <gh_token>]
-  surgemail debug-gh
-
-Notes:
-  • Provide a GitHub token via --token or env GH_TOKEN/GITHUB_TOKEN to avoid rate limits and access private/draft data.
-  • debug-gh prints network/tool availability and what the GitHub helpers see (release/prerelease/default branch).
+Commands:
+  -u | update       Download and install a specified SurgeMail version
+                    Options:
+                      --version <ver>   e.g. 80e (NOT the full artifact name)
+                      --os <target>     windows64 | windows | linux64 | linux |
+                                        solaris_i64 | freebsd64 |
+                                        macosx_arm64 | macosx_intel64
+                      --api             requires --version, no prompts, auto-answers, --force
+                      --yes             Auto-answer installer prompts with y
+                      --force           Kill ANY processes blocking required ports at start
+                      --dry-run         Simulate actions without changes
+                      --verbose         Show detailed debug output
+  check-update      Detect installed version and compare with latest online
+                    Options:
+                      --os <target>     Artifact OS (auto-detected if omitted)
+                      --auto            If newer exists, run 'update --api' automatically.
+                                        Triggers the update --api with latest version.
+                                        Use this when setting up your scheduled run with cron
+                                        crontab -e
+                                        (* * * * * is place holder. user your own schedule)
+                                        * * * * * /usr/local/bin/surgemail check-update --auto          
+                      --verbose         Show details
+  self_check_update Checks for newer ServerMail Helper script version and prompt to update.
+                    Format:
+                      surgemail self_check_update [--channel <release|prerelease|dev>] [--auto] [--quiet] [--token <gh_token>] 
+                    Options:
+                      --auto            Eliminates prompts in self_check_update. 
+                                        Use this in your cron job.
+                      --channel         Options are:
+                                        reelase
+                                        prerelease
+                                        dev
+                                        If not set it defaults to release.
+                      --token <gh_token>
+  self_update       Update the ServerMail Helper script folder (git clone or ZIP).
+                    Format:
+                      surgemail self_update [--channel <release|prerelease|dev>] [--auto] [--token <gh_token>]
+                    Options:
+                      --auto            Eliminates prompts in self_check_update. 
+                                        Use this in your cron job.
+                      --channel         Options are:
+                                        reelase
+                                        prerelease
+                                        dev
+                                        If not set it defaults to release.
+                      --token <gh_token>
+  stop              Stop SurgeMail AND free required ports (kills blockers)
+  start             Start the SurgeMail server (use --force to kill blockers)
+  restart           Stop then start the SurgeMail server (use --force to kill blockers)
+  -r | reload       Reload SurgeMail configuration via 'tellmail reload'
+  -s | status       Show current SurgeMail status via 'tellmail status'
+  -v | version      Show installed SurgeMail version via 'tellmail version'
+  -w | where        Show helper dir, surgemail server dir, tellmail path.
+  -d | diagnostics  Print environment/report.
+  -h | --help       Show this help
+  man               Show man page (if installed), else help.
 EOF
-  }
+}
 fi
 
 
@@ -1131,8 +1179,6 @@ case "${1:-}" in
 esac
 
 # --- v1.14.12 helpers ---
-1
-}
 
 norm_semver() {
   # strip leading v if present
