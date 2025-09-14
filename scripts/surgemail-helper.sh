@@ -23,6 +23,98 @@ SCRIPT_DIR="$(cd -P "$(dirname -- "$SCRIPT_PATH")" && pwd)"
 # shellcheck source=_gh_helpers.inc.sh
 . "$SCRIPT_DIR/_gh_helpers.inc.sh"
 
+# --- helpers: project path, git check, http download, and zip overlay ---
+
+# Absolute project root (parent of the scripts dir where this file lives)
+project_root() {
+  # Requires SCRIPT_DIR already set by your header symlink-resolution code
+  ( cd "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd )
+}
+
+# Do we have a git checkout at project root?
+have_git_checkout() {
+  [ -d "$(project_root)/.git" ]
+}
+
+# Download a URL to a given file (supports GH_TOKEN/GITHUB_TOKEN for private repos)
+http_download() {
+  # $1=url $2=dest_file
+  local url="$1" out="$2" ua="surgemail-helper/1.14.12"
+  local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  if command -v curl >/dev/null 2>&1; then
+    if [ -n "$token" ]; then
+      curl -fSL -o "$out" -H "User-Agent: $ua" -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" "$url"
+    else
+      curl -fSL -o "$out" -H "User-Agent: $ua" -H "Accept: application/vnd.github+json" "$url"
+    fi
+  else
+    if [ -n "$token" ]; then
+      wget -O "$out" --header="User-Agent: $ua" --header="Authorization: Bearer $token" --header="Accept: application/vnd.github+json" "$url"
+    else
+      wget -O "$out" --header="User-Agent: $ua" --header="Accept: application/vnd.github+json" "$url"
+    fi
+  fi
+}
+
+# Build a GitHub zip URL for a ref (branch or tag)
+gh_zip_url_for_ref() {
+  # $1 = owner (default GH_OWNER), $2 = repo (default GH_REPO), $3 = ref (branch/tag)
+  local owner="${1:-${GH_OWNER:-mrlerch}}" repo="${2:-${GH_REPO:-SurgeMail-Helper}}" ref="${3:-}"
+  [ -n "$ref" ] || return 1
+  # e.g. https://api.github.com/repos/OWNER/REPO/zipball/REF
+  printf "https://api.github.com/repos/%s/%s/zipball/%s" "$owner" "$repo" "$ref"
+}
+
+# Overlay a downloaded zip (branch/tag) onto the project root
+overlay_zip_to_root() {
+  # $1 = ref (branch or tag)
+  local ref="$1"
+  local root; root="$(project_root)"
+  local tmpdir zipfile
+  tmpdir="$(mktemp -d)"; zipfile="$tmpdir/update.zip"
+
+  local url; url="$(gh_zip_url_for_ref "${GH_OWNER:-mrlerch}" "${GH_REPO:-SurgeMail-Helper}" "$ref")" || {
+    echo "Invalid ref for zip overlay." >&2; rm -rf "$tmpdir"; return 1; }
+
+  echo "Downloading ZIP for ref '$ref'..."
+  if ! http_download "$url" "$zipfile"; then
+    echo "Failed to download ZIP from GitHub." >&2
+    rm -rf "$tmpdir"; return 1
+  fi
+
+  # Unzip to temp; take first top-level dir as payload
+  local unpack="$tmpdir/unpack"
+  mkdir -p "$unpack"
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "$zipfile" -d "$unpack"
+  else
+    if command -v busybox >/dev/null 2>&1; then busybox unzip "$zipfile" -d "$unpack" >/dev/null; else
+      echo "Need 'unzip' (or busybox) to extract." >&2
+      rm -rf "$tmpdir"; return 1
+    fi
+  fi
+
+  # Find the top-level folder created by GitHub zipball
+  local payload
+  payload="$(find "$unpack" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+  if [ -z "$payload" ]; then
+    echo "ZIP payload not found." >&2
+    rm -rf "$tmpdir"; return 1
+  fi
+
+  echo "Overlaying files onto project root: $root"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete-after --exclude=".git/" "$payload"/ "$root"/
+  else
+    (cd "$payload" && tar cf - .) | (cd "$root" && tar xpf -)
+  fi
+
+  rm -rf "$tmpdir"
+  echo "ZIP overlay complete."
+}
+# --- end helpers ---
+
+
 # --- TEMP: early diagnostics command (runs before anything else) ---
 if [ "${1:-}" = "debug-gh" ]; then
   set +e
@@ -1243,3 +1335,4 @@ PY
 #   self_check_update  --channel <release|prerelease|dev> (default: release) --auto --quiet --token <gh_token>
 #   self_update        --channel <release|prerelease|dev> (default: release) --auto --token <gh_token>
 # GitHub API unauthenticated by default (rate limit ~60/hr). Optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
+
