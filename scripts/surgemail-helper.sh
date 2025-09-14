@@ -984,6 +984,18 @@ compare_versions_semver() {
   return 0
 }
 
+# Normalize semver-ish strings like "v1.14.12" -> "1.14.12" and fill missing parts.
+norm_semver() {
+  # strip leading "v" or "V"
+  local v="${1#v}"; v="${v#V}"
+  # keep only digits and dots; stop at any non [0-9.] (e.g., "-rc1" -> stop before -)
+  v="${v%%[^0-9.]*}"
+  # split to a.b.c (default missing parts to 0)
+  local a b c
+  IFS='.' read -r a b c <<<"$v"
+  a=${a:-0}; b=${b:-0}; c=${c:-0}
+  printf "%d.%d.%d" "$a" "$b" "$c"
+}
 
 cmd_self_check_update() {
   set +e
@@ -1179,13 +1191,6 @@ case "${1:-}" in
 esac
 
 # --- v1.14.12 helpers ---
-
-norm_semver() {
-  # strip leading v if present
-  local v="$1"
-  v="${v#v}"
-  echo "$v"
-}
 
 cmp_semver() {
   # returns 0 if equal, 1 if a>b, 2 if a<b
