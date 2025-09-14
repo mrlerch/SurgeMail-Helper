@@ -1,4 +1,25 @@
 #!/usr/bin/env bash
+# Always run under bash
+if [ -z "$BASH_VERSION" ]; then exec /usr/bin/env bash "$0" "$@"; fi
+set -euo pipefail
+
+# Source GitHub helpers (kept separate to avoid brace collisions in main file)
+# shellcheck source=_gh_helpers.inc.sh
+. "$(cd -- "$(dirname -- "$0")" && pwd)/_gh_helpers.inc.sh"
+
+# --- TEMP: early diagnostics command (runs before anything else) ---
+if [ "${1:-}" = "debug-gh" ]; then
+  set +e
+  echo "has_curl: $([ -n "$(command -v curl 2>/dev/null)" ] && echo yes || echo no)"
+  echo "has_wget: $([ -n "$(command -v wget 2>/dev/null)" ] && echo yes || echo no)"
+  echo "has_git:  $([ -n "$(command -v git  2>/dev/null)" ] && echo yes || echo no)"
+  echo "latest_release: $(gh_latest_release_tag)"
+  echo "first_prerelease: $(gh_first_prerelease_tag)"
+  echo "default_branch: $(gh_default_branch)"
+  exit 0
+fi
+# --- /TEMP ---
+
 # ============================================================================
 # SurgeMail Helper: Control & Updater (Unix)
 # Version: 1.14.12 (2025-09-14)
@@ -18,7 +39,6 @@
 #
 # See CHANGELOG.md for details. Use symlink install:
 # Changelog (embedded summary; see external CHANGELOG.md if bundled)
-# v1.14.12 - fixed update code
 # v1.14.12 (- Implemented GitHub helpers for self_check_update/self_update (release/prerelease/dev).
 #   - Default unauthenticated GitHub API with optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
 #   - Streamlined start output (single pre-check and single final result).
@@ -148,69 +168,7 @@ die() { echo "Error: $*" >&2; exit 1; }
 warn() { echo "Warning: $*" >&2; }
 vlog() { [[ "$VERBOSE" -eq 1 ]] && echo "[debug] $*"; }
 need_root() { [ "$(id -u)" -eq 0 ] || die "Please run as root (sudo)."; }
-have() { command -v "$1" >/dev/null 2>&1; }
-is_tty() { [[ -t 0 ]] && [[ -t 1 ]]; }
 
-cleanup() { if [[ -n "${WORKDIR:-}" && -d "$WORKDIR" ]]; then rm -rf "$WORKDIR"; fi; }
-trap 'echo "Failed on line $LINENO."; cleanup' ERR INT
-trap 'cleanup' EXIT
-
-show_main_help() {
-  cat <<'EOF'
-Usage: surgemail <command> [options]
-
-Commands:
-  -u | update       Download and install a specified SurgeMail version
-                    Options:
-                      --version <ver>   e.g. 80e (NOT the full artifact name)
-                      --os <target>     windows64 | windows | linux64 | linux |
-                                        solaris_i64 | freebsd64 |
-                                        macosx_arm64 | macosx_intel64
-                      --api             requires --version, no prompts, auto-answers, --force
-                      --yes             Auto-answer installer prompts with y
-                      --force           Kill ANY processes blocking required ports at start
-                      --dry-run         Simulate actions without changes
-                      --verbose         Show detailed debug output
-  check-update      Detect installed version and compare with latest online
-                    Options:
-                      --os <target>     Artifact OS (auto-detected if omitted)
-                      --auto            If newer exists, run 'update --api' automatically.
-                                        Triggers the update --api with latest version.
-                                        Use this when setting up your scheduled run with cron
-                                        crontab -e
-                                        (* * * * * is place holder. user your own schedule)
-                                        * * * * * /usr/local/bin/surgemail check-update --auto          
-                      --verbose         Show details
-  self_check_update Checks for newer ServerMail Helper script version and prompt to update. 
-                    Options:
-                      --auto            Eliminates prompts in self_check_update. 
-                                        Use this in your cron job.
-                      --channel         Options are:
-                                        reelase
-                                        prerelease
-                                        dev
-                                        If not set it defaults to release.
-  self_update       Update the ServerMail Helper script folder (git clone or ZIP).
-                    Options:
-                      --auto            Eliminates prompts in self_check_update. 
-                                        Use this in your cron job.
-                      --channel         Options are:
-                                        reelase
-                                        prerelease
-                                        dev
-                                        If not set it defaults to release.
-  stop              Stop SurgeMail AND free required ports (kills blockers)
-  start             Start the SurgeMail server (use --force to kill blockers)
-  restart           Stop then start the SurgeMail server (use --force to kill blockers)
-  -r | reload       Reload SurgeMail configuration via 'tellmail reload'
-  -s | status       Show current SurgeMail status via 'tellmail status'
-  -v | version      Show installed SurgeMail version via 'tellmail version'
-  -w | where        Show helper dir, surgemail server dir, tellmail path.
-  -d | diagnostics  Print environment/report.
-  -h | --help       Show this help
-  man               Show man page (if installed), else help.
-EOF
-}
 
 # ---------- status & waits ----------
 is_surgemail_ready() {
@@ -486,6 +444,16 @@ cmd_check_update() {
       --auto) AUTO=1; shift ;;
       --verbose) VERBOSE=1; shift ;;
       -h|--help) echo "Usage: surgemail check-update [--os <target>] [--auto] [--verbose]"; set -e; return 0 ;;
+      debug-gh)
+        shift || true
+        echo "has_curl: $(command -v curl >/dev/null 2>&1 && echo yes || echo no)"
+        echo "has_wget: $(command -v wget >/dev/null 2>&1 && echo yes || echo no)"
+        echo "has_git:  $(command -v git  >/dev/null 2>&1 && echo yes || echo no)"
+        echo "latest_release: $(gh_latest_release_tag)"
+        echo "first_prerelease: $(gh_first_prerelease_tag)"
+        echo "default_branch: $(gh_default_branch)"
+        ;;
+
       *) shift ;;
     esac
   done
@@ -933,31 +901,6 @@ compare_versions_semver() {
   return 0
 }
 
-gh_first_prerelease_tag() {
-  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
-  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}/releases?per_page=10")"
-  # Find first object with "prerelease":true and extract its tag_name
-  echo "$json" | tr -d '\n' | sed -n 's/.*"prerelease":true[^}]*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
-}
-gh_http_get() {
-  # $1 = URL
-  local url="$1"
-  local ua="surgemail-helper/1.14.12"
-  if have curl; then
-    curl -fsSL -H "User-Agent: $ua" "$url" 2>/dev/null || true
-  else
-    wget -qO- --header="User-Agent: $ua" "$url" 2>/dev/null || true
-  fi
-}
-
-gh_latest_release_tag() {
-  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
-  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}/releases/latest")"
-  echo "$json" | tr -d '\n' | sed -n 's/.*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
-}
-
-
-
 
 cmd_self_check_update() {
   set +e
@@ -1145,14 +1088,7 @@ case "${1:-}" in
 esac
 
 # --- v1.14.12 helpers ---
-
-
-
-
-gh_default_branch() {
-  local owner="${GH_OWNER:-mrlerch}"; local repo="${GH_REPO:-SurgeMail-Helper}"
-  local json; json="$(gh_http_get "https://api.github.com/repos/${owner}/${repo}")"
-  echo "$json" | tr -d '\n' | sed -n 's/.*"default_branch":"\([^"]*\)".*/\1/p' | head -n1
+1
 }
 
 norm_semver() {
