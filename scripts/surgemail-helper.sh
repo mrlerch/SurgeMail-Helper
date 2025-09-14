@@ -5,7 +5,23 @@ set -euo pipefail
 
 # Source GitHub helpers (kept separate to avoid brace collisions in main file)
 # shellcheck source=_gh_helpers.inc.sh
-. "$(cd -- "$(dirname -- "$0")" && pwd)/_gh_helpers.inc.sh"
+# Resolve this script's real directory (follow symlinks)
+if command -v readlink >/dev/null 2>&1; then
+  SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+else
+  # Fallback: manually resolve symlinks
+  SCRIPT_PATH="${BASH_SOURCE[0]}"
+  while [ -h "$SCRIPT_PATH" ]; do
+    DIR="$(cd -P "$(dirname -- "$SCRIPT_PATH")" && pwd)"
+    LINK="$(readlink -- "$SCRIPT_PATH")" || break
+    [[ "$LINK" != /* ]] && SCRIPT_PATH="$DIR/$LINK" || SCRIPT_PATH="$LINK"
+  done
+fi
+SCRIPT_DIR="$(cd -P "$(dirname -- "$SCRIPT_PATH")" && pwd)"
+
+# Source helpers from the real script directory
+# shellcheck source=_gh_helpers.inc.sh
+. "$SCRIPT_DIR/_gh_helpers.inc.sh"
 
 # --- TEMP: early diagnostics command (runs before anything else) ---
 if [ "${1:-}" = "debug-gh" ]; then
