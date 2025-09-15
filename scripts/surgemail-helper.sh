@@ -240,8 +240,8 @@ VERBOSE=${VERBOSE:-0}  # 0=quiet, 1=verbose
 
 # --- helpers ---
 # ---- GitHub helpers for self-update ----
-GH_OWNER="{GH_OWNER:-mrlerch}"
-GH_REPO="{GH_REPO:-SurgeMail-Helper}"
+GH_OWNER="${GH_OWNER:-mrlerch}"
+GH_REPO="${GH_REPO:-SurgeMail-Helper}"
 smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
@@ -1335,4 +1335,5 @@ PY
 #   self_check_update  --channel <release|prerelease|dev> (default: release) --auto --quiet --token <gh_token>
 #   self_update        --channel <release|prerelease|dev> (default: release) --auto --token <gh_token>
 # GitHub API unauthenticated by default (rate limit ~60/hr). Optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
+
 
