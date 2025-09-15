@@ -8,6 +8,7 @@ sudo su
 git clone https://github.com/mrlerch/SurgeMail-Helper.git
 cd SurgeMail-Helper
 chmod 775 scripts/surgemail-helper.sh
+
 ```
 2. Download .zip file
 ```bash
@@ -17,12 +18,14 @@ wget https://github.com/mrlerch/SurgeMail-Helper/archive/refs/heads/main.zip
 unzip SurgeMail-Helper-main.zip
 cd SurgeMail-Helper
 chmod 775 scripts/surgemail-helper.sh
+
 ```
 ## Install (symlink)
 ```bash
 # to access the script globally create a sym link in /usr/local/bin
 # from inside SurgeMail-Helper/
 script="$PWD/scripts/surgemail-helper.sh"; sudo ln -sf "$script" /usr/local/bin/surgemail
+
 ```
 Ensure `/usr/local/bin` is in your `$PATH`.
 
