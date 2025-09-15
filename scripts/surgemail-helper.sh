@@ -1089,6 +1089,16 @@ norm_semver() {
   printf "%d.%d.%d" "$a" "$b" "$c"
 }
 
+cmp_semver() {
+  # returns 0 if equal, 1 if a>b, 2 if a<b
+  local a="$1" b="$2"
+  if [[ "$a" == "$b" ]]; then echo 0; return 0; fi
+  local bigger="$(printf '%s
+%s
+' "$a" "$b" | sort -V | tail -n1)"
+  if [[ "$bigger" == "$a" ]]; then echo 1; else echo 2; fi
+}
+
 cmd_self_check_update() {
   set +e
   local CHANNEL="release" AUTO=0 QUIET=0
@@ -1283,16 +1293,6 @@ case "${1:-}" in
 esac
 
 # --- v1.14.12 helpers ---
-
-cmp_semver() {
-  # returns 0 if equal, 1 if a>b, 2 if a<b
-  local a="$1" b="$2"
-  if [[ "$a" == "$b" ]]; then echo 0; return 0; fi
-  local bigger="$(printf '%s
-%s
-' "$a" "$b" | sort -V | tail -n1)"
-  if [[ "$bigger" == "$a" ]]; then echo 1; else echo 2; fi
-}
 
 have_git_checkout() {
   # We are in scripts/ ... project root is one level up
