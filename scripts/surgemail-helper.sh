@@ -1263,7 +1263,7 @@ cmd_self_update() {
       ;;
   esac
 
-  # Development branch update
+  # --- development branch update (no semver) ---
   if [[ "${CHANNEL}" = "dev" ]]; then
     if [[ -z "${remote_branch}" ]]; then
       echo "Could not determine default branch from GitHub."
@@ -1271,22 +1271,24 @@ cmd_self_update() {
     fi
     if have_git_checkout; then
       echo "Detected git checkout. Updating via git..."
-      (cd "$(project_root)" && \
-        git fetch origin "$remote_branch" && \
-        git checkout "$remote_branch" && \
-        git pull origin "$remote_branch")
-      echo "Helper updated via git to ${remote_branch}."
+      if ( cd "$(project_root)" \
+           && git fetch origin "${remote_branch}" \
+           && git checkout -q "${remote_branch}" \
+           && git pull --ff-only origin "${remote_branch}" ); then
+        echo "Helper updated via git to ${remote_branch}."
+        return 0
+      else
+        echo "Git update failed; falling back to ZIP..."
+      fi
     else
       echo "No git checkout detected. Updating via ZIP..."
-      overlay_zip_to_root "$remote_branch" || {
-        echo "ZIP update failed."
-        return 1
-      }
     fi
+    overlay_zip_to_root "${remote_branch}" || { echo "ZIP update failed."; return 1; }
+    echo "Helper updated via ZIP to ${remote_branch}."
     return 0
   fi
 
-  # Release/prerelease update
+  # --- release/prerelease tag update ---
   if [[ -z "${remote_tag}" ]]; then
     echo "Could not determine latest helper version from GitHub."
     return 1
@@ -1294,18 +1296,22 @@ cmd_self_update() {
 
   if have_git_checkout; then
     echo "Detected git checkout. Updating via git..."
-    (cd "$(project_root)" && \
-      git fetch origin "refs/tags/${remote_tag}" && \
-      git checkout "tags/${remote_tag}" -B "helper-${remote_tag}")
-    echo "Helper updated via git to ${remote_tag}."
+    # Old-git compatible: fetch tags then checkout tag in detached HEAD
+    if ( cd "$(project_root)" \
+         && git fetch --tags origin \
+         && { git checkout -q "tags/${remote_tag}" || git checkout -q "refs/tags/${remote_tag}"; } ); then
+      echo "Helper updated via git to ${remote_tag}."
+      return 0
+    else
+      echo "Git tag checkout failed; falling back to ZIP..."
+    fi
   else
     echo "No git checkout detected. Updating via ZIP..."
-    overlay_zip_to_root "$remote_tag" || {
-      echo "ZIP update failed."
-      return 1
-    }
-    echo "Helper updated via ZIP to ${remote_tag}."
   fi
+
+  overlay_zip_to_root "${remote_tag}" || { echo "ZIP update failed."; return 1; }
+  echo "Helper updated via ZIP to ${remote_tag}."
+  return 0
 }
 
 
