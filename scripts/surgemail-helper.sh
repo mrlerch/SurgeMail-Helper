@@ -1119,14 +1119,14 @@ cmd_self_check_update() {
     esac
   done
 
-  # Resolve remote based on channel
+  # Determine remote target based on channel
   local remote_tag="" remote_branch=""
   case "${CHANNEL}" in
     release)
-      remote_tag="$(gh_latest_release_tag)"       # falls back to latest tag if no Releases
+      remote_tag="$(gh_latest_release_tag)"
       ;;
     prerelease)
-      remote_tag="$(gh_first_prerelease_tag)"     # needs a published prerelease (token helps for private)
+      remote_tag="$(gh_first_prerelease_tag)"
       ;;
     dev)
       remote_branch="$(gh_default_branch)"
@@ -1137,7 +1137,7 @@ cmd_self_check_update() {
       ;;
   esac
 
-  # Dev channel: branch-based update flow (no semver compare)
+  # Dev channel uses branch – no semver compare
   if [[ "${CHANNEL}" = "dev" ]]; then
     if [[ -z "${remote_branch}" ]]; then
       echo "Could not determine default branch from GitHub."
@@ -1156,29 +1156,28 @@ cmd_self_check_update() {
     return 0
   fi
 
-  # Release/prerelease: need a tag to compare
+  # Release / prerelease must produce a tag
   if [[ -z "${remote_tag}" ]]; then
     echo "Could not determine latest helper version from GitHub."
     return 1
   fi
 
-  # Compare local vs remote (proper numeric semver comparison)
+  # --- Correct semver compare (numeric, not string) ---
   local local_raw="${HELPER_VERSION:-$VERSION}"
   local local_norm remote_norm cmp
   local_norm="$(norm_semver "$local_raw")"
   remote_norm="$(norm_semver "$remote_tag")"
-  cmp="$(cmp_semver "$local_norm" "$remote_norm")"
+  cmp="$(cmp_semver "$local_norm" "$remote_norm")"   # -1 if local<remote, 0 if =, 1 if local>remote
 
   if [[ "$cmp" -eq 0 ]]; then
     [[ "${QUIET}" -eq 1 ]] || echo "Already up to date (${remote_tag})."
     return 0
   elif [[ "$cmp" -gt 0 ]]; then
-    # Local is newer than remote
     [[ "${QUIET}" -eq 1 ]] || echo "Local version (${local_raw}) is newer than remote (${remote_tag}). No action."
     return 0
   fi
+  # if we got here: local < remote
 
-  # If we get here, local is older than remote → offer to update (or auto)
   if [[ "${AUTO}" -eq 1 ]]; then
     "$0" self_update --channel "${CHANNEL}" ${GH_TOKEN:+--token "$GH_TOKEN"}
     return $?
