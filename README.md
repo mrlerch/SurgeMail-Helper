@@ -15,7 +15,8 @@ chmod 775 scripts/surgemail-helper.sh
 # first ssh into your server and navigate to your home directory
 sudo su
 wget https://github.com/mrlerch/SurgeMail-Helper/archive/refs/heads/main.zip
-unzip SurgeMail-Helper-main.zip
+unzip main.zip
+mv SurgeMail-Helper-main SurgeMail-Helper
 cd SurgeMail-Helper
 chmod 775 scripts/surgemail-helper.sh
 
