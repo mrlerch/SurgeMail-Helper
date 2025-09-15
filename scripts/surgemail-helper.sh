@@ -1089,15 +1089,34 @@ norm_semver() {
   printf "%d.%d.%d" "$a" "$b" "$c"
 }
 
+# Compare two semver strings; echoes -1 (a<b), 0 (==), 1 (a>b)
 cmp_semver() {
-  # returns 0 if equal, 1 if a>b, 2 if a<b
-  local a="$1" b="$2"
-  if [[ "$a" == "$b" ]]; then echo 0; return 0; fi
-  local bigger="$(printf '%s
-%s
-' "$a" "$b" | sort -V | tail -n1)"
-  if [[ "$bigger" == "$a" ]]; then echo 1; else echo 2; fi
+  # Normalize both sides first
+  local A B a1 a2 a3 b1 b2 b3
+  A="$(norm_semver "$1")"
+  B="$(norm_semver "$2")"
+
+  IFS='.' read -r a1 a2 a3 <<<"$A"
+  IFS='.' read -r b1 b2 b3 <<<"$B"
+
+  a1=${a1:-0}; a2=${a2:-0}; a3=${a3:-0}
+  b1=${b1:-0}; b2=${b2:-0}; b3=${b3:-0}
+
+  if (( a1 != b1 )); then
+    (( a1 < b1 )) && echo -1 || echo 1
+    return 0
+  fi
+  if (( a2 != b2 )); then
+    (( a2 < b2 )) && echo -1 || echo 1
+    return 0
+  fi
+  if (( a3 != b3 )); then
+    (( a3 < b3 )) && echo -1 || echo 1
+    return 0
+  fi
+  echo 0
 }
+
 
 cmd_self_check_update() {
   set +e
@@ -1170,10 +1189,10 @@ cmd_self_check_update() {
   cmp="$(cmp_semver "$local_norm" "$remote_norm")"   # -1 if local<remote, 0 if =, 1 if local>remote
 
   if [[ "$cmp" -eq 0 ]]; then
-    [[ "${QUIET}" -eq 1 ]] || echo "Already up to date (${remote_tag})."
+    [[ "${QUIET:-0}" -eq 1 ]] || echo "Already up to date (${remote_tag})."
     return 0
   elif [[ "$cmp" -gt 0 ]]; then
-    [[ "${QUIET}" -eq 1 ]] || echo "Local version (${local_raw}) is newer than remote (${remote_tag}). No action."
+    [[ "${QUIET:-0}" -eq 1 ]] || echo "Local version (${local_raw}) is newer than remote (${remote_tag}). No action."
     return 0
   fi
   # if we got here: local < remote
