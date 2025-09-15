@@ -1101,78 +1101,96 @@ cmp_semver() {
 
 cmd_self_check_update() {
   set +e
-  local CHANNEL="release" AUTO=0 QUIET=0
+  local CHANNEL="release" AUTO=0 QUIET=0 VERBOSE=0
+
+  # options
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --channel) CHANNEL="${2:-release}"; shift 2 ;;
-      --token)
-        GH_TOKEN="${2:-}"; export GH_TOKEN
-        shift 2
-        ;;
-      --auto) AUTO=1; shift ;;
-      --quiet) QUIET=1; shift ;;
+      --auto)    AUTO=1; shift ;;
+      --quiet)   QUIET=1; shift ;;
       --verbose) VERBOSE=1; shift ;;
-      -h|--help) echo "Usage: surgemail self_check_update [--channel release|prerelease|dev] [--auto] [--quiet]"; set -e; return 0 ;;
+      --token)   GH_TOKEN="${2:-}"; export GH_TOKEN; shift 2 ;;
+      -h|--help)
+        echo "Usage: surgemail self_check_update [--channel <release|prerelease|dev>] [--auto] [--quiet] [--token <gh_token>]"
+        return 0
+        ;;
       *) shift ;;
     esac
   done
 
-  local remote="" is_branch=0
-  case "$CHANNEL" in
+  # Resolve remote based on channel
+  local remote_tag="" remote_branch=""
+  case "${CHANNEL}" in
     release)
-      remote="$(gh_latest_release_tag)"
+      remote_tag="$(gh_latest_release_tag)"       # falls back to latest tag if no Releases
       ;;
     prerelease)
-      remote="$(gh_first_prerelease_tag)"
+      remote_tag="$(gh_first_prerelease_tag)"     # needs a published prerelease (token helps for private)
       ;;
     dev)
-      remote="$(gh_default_branch)"; is_branch=1
+      remote_branch="$(gh_default_branch)"
       ;;
     *)
-      echo "Unknown channel: $CHANNEL"; set -e; return 0 ;;
-  esac
-  if [[ -z "$remote" ]]; then
-    echo "Could not determine latest helper version from GitHub."
-    set -e; return 0
-  fi
-
-  local local_v remote_v
-  local_v="$(norm_semver "$HELPER_VERSION")"
-  if (( is_branch==1 )); then
-    # always consider dev newer unless the working copy is git and up to date
-    if (( AUTO==1 )); then
-      exec "$0" self_update --auto --channel dev ${VERBOSE:+--verbose}
-    else
-      read -rp "Update to development branch '$remote' now? [y/N]: " ans
-      [[ "${ans,,}" == y || "${ans,,}" == yes ]] && exec "$0" self_update --channel dev
-      echo "Ok, maybe next time. Exiting."
-    fi
-    set -e; return 0
-  fi
-
-  remote_v="$(norm_semver "$remote")"
-  case "$(cmp_semver "$remote_v" "$local_v")" in
-    0)
-      (( QUIET==1 )) || echo "You are running the latest SurgeMail Helper script version v$local_v"
-      set -e; return 0 ;;
-    1)
-      echo "Local version (v$local_v) is newer than remote (v$remote_v). No action."; set -e; return 0 ;;
-    2)
-      echo "A newer Helper version is available: v$remote_v (local v$local_v)."
-      if (( AUTO==1 )); then
-        exec "$0" self_update --auto --channel "$CHANNEL"
-      else
-        read -rp "Upgrade now? [y/N]: " ans
-        if [[ "${ans,,}" == y || "${ans,,}" == yes ]]; then
-          exec "$0" self_update --channel "$CHANNEL"
-        else
-          echo "Ok, maybe next time. Exiting."
-        fi
-      fi
+      echo "Unknown channel: ${CHANNEL}" >&2
+      return 2
       ;;
   esac
-  set -e; return 0
+
+  # Dev channel: branch-based update flow (no semver compare)
+  if [[ "${CHANNEL}" = "dev" ]]; then
+    if [[ -z "${remote_branch}" ]]; then
+      echo "Could not determine default branch from GitHub."
+      return 1
+    fi
+    if [[ "${AUTO}" -eq 1 ]]; then
+      "$0" self_update --channel dev ${GH_TOKEN:+--token "$GH_TOKEN"}
+      return $?
+    fi
+    read -rp "Update to development branch '${remote_branch}' now? [y/N]: " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+      "$0" self_update --channel dev ${GH_TOKEN:+--token "$GH_TOKEN"}
+    else
+      [[ "${QUIET}" -eq 1 ]] || echo "Ok, maybe next time. Exiting."
+    fi
+    return 0
+  fi
+
+  # Release/prerelease: need a tag to compare
+  if [[ -z "${remote_tag}" ]]; then
+    echo "Could not determine latest helper version from GitHub."
+    return 1
+  fi
+
+  # Compare local vs remote (proper numeric semver comparison)
+  local local_raw="${HELPER_VERSION:-$VERSION}"
+  local local_norm remote_norm cmp
+  local_norm="$(norm_semver "$local_raw")"
+  remote_norm="$(norm_semver "$remote_tag")"
+  cmp="$(cmp_semver "$local_norm" "$remote_norm")"
+
+  if [[ "$cmp" -eq 0 ]]; then
+    [[ "${QUIET}" -eq 1 ]] || echo "Already up to date (${remote_tag})."
+    return 0
+  elif [[ "$cmp" -gt 0 ]]; then
+    # Local is newer than remote
+    [[ "${QUIET}" -eq 1 ]] || echo "Local version (${local_raw}) is newer than remote (${remote_tag}). No action."
+    return 0
+  fi
+
+  # If we get here, local is older than remote → offer to update (or auto)
+  if [[ "${AUTO}" -eq 1 ]]; then
+    "$0" self_update --channel "${CHANNEL}" ${GH_TOKEN:+--token "$GH_TOKEN"}
+    return $?
+  fi
+  read -rp "Update from ${local_raw} to '${remote_tag}' now? [y/N]: " ans
+  if [[ "$ans" =~ ^[Yy]$ ]]; then
+    "$0" self_update --channel "${CHANNEL}" ${GH_TOKEN:+--token "$GH_TOKEN"}
+  else
+    [[ "${QUIET}" -eq 1 ]] || echo "Ok, maybe next time. Exiting."
+  fi
 }
+
 download_and_overlay_zip() {
   local ref="$1"
   local tmpzip tmpdir basedir
