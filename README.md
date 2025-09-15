@@ -1,9 +1,28 @@
 # SurgeMail Helper — v1.14.12
 
+## Installation instructions for Linux, Unix, macOS
+1. Clone GitHub Project (Preferred Method)
+```bash
+# first ssh into your server and navigate to your home directory
+sudo su
+git clone https://github.com/mrlerch/SurgeMail-Helper.git
+cd SurgeMail-Helper
+chmod 775 scripts/surgemail-helper.sh
+```
+2. Download .zip file
+```bash
+# first ssh into your server and navigate to your home directory
+sudo su
+wget https://github.com/mrlerch/SurgeMail-Helper/archive/refs/heads/main.zip
+unzip SurgeMail-Helper-main.zip
+cd SurgeMail-Helper
+chmod 775 scripts/surgemail-helper.sh
+```
 ## Install (symlink)
 ```bash
+# to access the script globally create a sym link in /usr/local/bin
 # from inside SurgeMail-Helper/
-sudo ln -sf scripts/surgemail-helper.sh /usr/local/bin/surgemail
+script="$PWD/scripts/surgemail-helper.sh"; sudo ln -sf "$script" /usr/local/bin/surgemail
 ```
 Ensure `/usr/local/bin` is in your `$PATH`.
 
