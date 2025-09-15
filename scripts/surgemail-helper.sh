@@ -1209,74 +1209,87 @@ download_and_overlay_zip() {
 }
 cmd_self_update() {
   set +e
-  local CHANNEL="release" AUTO=0
+  local CHANNEL="release" AUTO=0 QUIET=0 VERBOSE=0
+
+  # options
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --channel) CHANNEL="${2:-release}"; shift 2 ;;
-      --token)
-        GH_TOKEN="${2:-}"; export GH_TOKEN
-        shift 2
-        ;;
-      --auto) AUTO=1; shift ;;
+      --auto)    AUTO=1; shift ;;
+      --quiet)   QUIET=1; shift ;;
       --verbose) VERBOSE=1; shift ;;
-      -h|--help) echo "Usage: surgemail self_update [--channel release|prerelease|dev] [--auto]"; set -e; return 0 ;;
+      --token)   GH_TOKEN="${2:-}"; export GH_TOKEN; shift 2 ;;
+      -h|--help)
+        echo "Usage: surgemail self_update [--channel <release|prerelease|dev>] [--auto] [--quiet] [--token <gh_token>]"
+        return 0
+        ;;
       *) shift ;;
     esac
   done
 
-  local owner="${GH_OWNER:-mrlerch}" repo="${GH_REPO:-SurgeMail-Helper}" ref="" is_branch=0
-
-  case "$CHANNEL" in
-    release)   ref="$(gh_latest_release_tag)";;
-    prerelease) ref="$(gh_first_prerelease_tag)";;
-    dev)       ref="$(gh_default_branch)"; is_branch=1;;
-    *) echo "Unknown channel: $CHANNEL"; set -e; return 0;;
+  # Resolve remote target
+  local remote_tag="" remote_branch=""
+  case "${CHANNEL}" in
+    release)
+      remote_tag="$(gh_latest_release_tag)"       # falls back to latest tag if no Releases
+      ;;
+    prerelease)
+      remote_tag="$(gh_first_prerelease_tag)"     # needs a published prerelease (token helps for private)
+      ;;
+    dev)
+      remote_branch="$(gh_default_branch)"
+      ;;
+    *)
+      echo "Unknown channel: ${CHANNEL}" >&2
+      return 2
+      ;;
   esac
-  if [[ -z "$ref" ]]; then
-    if (( is_branch==1 )); then echo "Could not determine default branch from GitHub."; else echo "Could not determine latest release/tag from GitHub."; fi
-    set -e; return 0
+
+  # Development branch update
+  if [[ "${CHANNEL}" = "dev" ]]; then
+    if [[ -z "${remote_branch}" ]]; then
+      echo "Could not determine default branch from GitHub."
+      return 1
+    fi
+    if have_git_checkout; then
+      echo "Detected git checkout. Updating via git..."
+      (cd "$(project_root)" && \
+        git fetch origin "$remote_branch" && \
+        git checkout "$remote_branch" && \
+        git pull origin "$remote_branch")
+      echo "Helper updated via git to ${remote_branch}."
+    else
+      echo "No git checkout detected. Updating via ZIP..."
+      overlay_zip_to_root "$remote_branch" || {
+        echo "ZIP update failed."
+        return 1
+      }
+    fi
+    return 0
   fi
 
-  local local_v remote_v
-  local_v="$(norm_semver "$HELPER_VERSION")"
-  if (( is_branch==0 )); then
-    remote_v="$(norm_semver "$ref")"
-    case "$(cmp_semver "$remote_v" "$local_v")" in
-      0) echo "Already at latest version (v$local_v)."; set -e; return 0 ;;
-      1)
-        if (( AUTO==0 )); then
-          read -rp "This would downgrade from v$local_v to v$remote_v. Continue? [y/N]: " ans
-          if [[ "${ans,,}" != y && "${ans,,}" != yes ]]; then echo "Aborting downgrade."; set -e; return 0; fi
-        fi
-        ;;
-      2) : ;; # upgrade
-    esac
+  # Release/prerelease update
+  if [[ -z "${remote_tag}" ]]; then
+    echo "Could not determine latest helper version from GitHub."
+    return 1
   fi
 
-  local root; root="$(project_root)"
   if have_git_checkout; then
     echo "Detected git checkout. Updating via git..."
-    (cd "$root" && git fetch --tags --all >/dev/null 2>&1)
-    if (( is_branch==1 )); then
-      (cd "$root" && git checkout -f "$ref" && git pull --ff-only origin "$ref") || { echo "Git update failed."; set -e; return 0; }
-    else
-      (cd "$root" && git -c advice.detachedHead=false checkout -f "tags/$ref") || { echo "Git checkout tag failed."; set -e; return 0; }
-    fi
-    echo "Helper updated via git to ${ref}."
-    set -e; return 0
+    (cd "$(project_root)" && \
+      git fetch origin "refs/tags/${remote_tag}" && \
+      git checkout "tags/${remote_tag}" -B "helper-${remote_tag}")
+    echo "Helper updated via git to ${remote_tag}."
   else
     echo "No git checkout detected. Updating via ZIP..."
-    local zip_url=""
-    if (( is_branch==1 )); then
-      zip_url="https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${ref}"
-    else
-      zip_url="https://codeload.github.com/${owner}/${repo}/zip/refs/tags/${ref}"
-    fi
-    overlay_zip_to_root "$zip_url" || { echo "ZIP update failed."; set -e; return 0; }
-    echo "Helper updated from ${CHANNEL} (${ref})."
-    set -e; return 0
+    overlay_zip_to_root "$remote_tag" || {
+      echo "ZIP update failed."
+      return 1
+    }
+    echo "Helper updated via ZIP to ${remote_tag}."
   fi
 }
+
 
 
 # ----------------------- SHORT_FLAG_ROUTER -----------------------
