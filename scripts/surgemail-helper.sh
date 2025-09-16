@@ -1296,14 +1296,28 @@ cmd_self_update() {
 
   if have_git_checkout; then
     echo "Detected git checkout. Updating via git..."
-    # Old-git compatible: fetch tags then checkout tag in detached HEAD
     if ( cd "$(project_root)" \
-         && git fetch --tags origin \
-         && { git checkout -q "tags/${remote_tag}" || git checkout -q "refs/tags/${remote_tag}"; } ); then
-      echo "Helper updated via git to ${remote_tag}."
-      return 0
+         && git fetch --tags origin ); then
+
+      STASHED=0
+      if ! (cd "$(project_root)" && git diff --quiet && git diff --cached --quiet); then
+        echo "Local changes detected; stashing..."
+        (cd "$(project_root)" && git stash push -u -m "surgemail-helper auto-stash before update") >/dev/null || true
+        STASHED=1
+      fi
+
+      if ( cd "$(project_root)" \
+           && { git checkout -q "tags/${remote_tag}" || git checkout -q "refs/tags/${remote_tag}"; } ); then
+        echo "Helper updated via git to ${remote_tag}."
+        if [ "$STASHED" -eq 1 ]; then
+          echo "Note: your local edits were stashed. Use 'git stash list' to inspect."
+        fi
+        return 0
+      else
+        echo "Git tag checkout failed; falling back to ZIP..."
+      fi
     else
-      echo "Git tag checkout failed; falling back to ZIP..."
+      echo "Git fetch failed; falling back to ZIP..."
     fi
   else
     echo "No git checkout detected. Updating via ZIP..."
