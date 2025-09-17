@@ -1,12 +1,27 @@
 # Changelog
 
+## [1.15.0] - 2025-09-16
+- self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
+- added _gh_helpers.inc.sh helper script for surgemail-helper.sh
+- PowerShell: applied all fixes and functionality from surgemail-helper.sh script
+
+## [1.14.12] - 2025-08-14
+- start: reduced duplicate status output; added quiet readiness probe to avoid redundant messages.
+- self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
+- PowerShell: aligned start messaging (quieter); notes added for 1.14.12.
+
+## [1.14.11] - 2025-08-14
+- stop: fixed AWK syntax errors by rewriting `list_blockers_detailed()` to use lsof → ss → netstat → fuser fallbacks and feed clean PID/command/port lines.
+- start: improved readiness detection. `is_surgemail_ready()` now waits 5s and treats “Bad Open Response” as stopped; prints clearer start messages and confirms health after start.
+- PowerShell: added `Is-Running` with the same semantics; wrapped the `start` command with equivalent pre/post checks.
+- Bumped HELPER_VERSION, SCRIPT_VERSION, header “Version:” and User-Agent to 1.14.11.
+
 ## [1.14.10] - 2025-08-12
-(- Implemented missing GitHub helper functions for self_check_update/self_update with channels.
+- Implemented missing GitHub helper functions for self_check_update/self_update with channels.
 - Default unauthenticated GitHub API; optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
 - Streamlined start output to avoid redundant checks/messages.
 - Updated help text in scripts to document options and token usage.
-)
-## [1.14.10] - 2025-08-12
+
 INSTALL:
 Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
 you may opt to cd to SurgeMail-Helper and then run the the command below.
@@ -16,8 +31,6 @@ Please make sure that /usr/local/bin is in your executable path. If you get the 
  you need to add this line below to your .bashrc file (in the user's home directory)
   export PATH="/usr/local/bin:$PATH"
 
- See CHANGELOG.md for details. Use symlink install:
- Changelog (embedded summary; see external CHANGELOG.md if bundled)
 ## [1.14.8] - 2025-08-12
 - Implemented short flags routing (-s, -r, -u, -d, -v, -w, -h) and documented them.
 - Router now includes where/diagnostics/self_check_update/self_update and help aliases.
@@ -106,22 +119,3 @@ Please make sure that /usr/local/bin is in your executable path. If you get the 
 
 ## [1.0.0] - 2025-08-09
 - Initial dispatcher and basic update/start/stop hooks
-
-## [1.14.10] - 2025-08-12
-- Version bump only; kept *all* existing Bash functions and logic intact.
-- Synced PowerShell helper with Bash commands and short flags (no impact to Bash).
-- CHANGELOG appended; prior entries preserved.
-
-
-
-## [1.14.11] - 2025-08-14
-- stop: fixed AWK syntax errors by rewriting `list_blockers_detailed()` to use lsof → ss → netstat → fuser fallbacks and feed clean PID/command/port lines.
-- start: improved readiness detection. `is_surgemail_ready()` now waits 5s and treats “Bad Open Response” as stopped; prints clearer start messages and confirms health after start.
-- PowerShell: added `Is-Running` with the same semantics; wrapped the `start` command with equivalent pre/post checks.
-- Bumped HELPER_VERSION, SCRIPT_VERSION, header “Version:” and User-Agent to 1.14.11.
-
-
-## [1.14.12] - 2025-08-14
-- start: reduced duplicate status output; added quiet readiness probe to avoid redundant messages.
-- self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
-- PowerShell: aligned start messaging (quieter); notes added for 1.14.12.

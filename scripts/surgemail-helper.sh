@@ -1,4 +1,67 @@
 #!/usr/bin/env bash
+
+# ============================================================================
+# SurgeMail Helper: Control & Updater (Unix)
+# Version: 1.15.0 (2025-09-16)
+#
+# ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
+#
+# SurgeMail Helper — v1.15.0
+#
+# INSTALL:
+# Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
+# you may opt to cd to SurgeMail-Helper and then run the the command below.
+#   sudo ln -sf scripts/surgemail-helper.sh /usr/local/bin/surgemail
+# Please make sure that /usr/local/bin is in your executable path. If you get the following error:
+#   bash: surgemail: command not found
+# you need to add this line below to your .bashrc file (in the user's home directory)
+#   export PATH="/usr/local/bin:$PATH"
+# For more details please see the included README.md file
+#
+# See CHANGELOG.md for details. Use symlink install:
+# Changelog (embedded summary; see external CHANGELOG.md if bundled)
+# v1.15.0 (2025-09-16)
+#   - self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
+#   - added _gh_helpers.inc.sh helper script for surgemail-helper.sh
+#   - PowerShell: applied all fixes and functionality from surgemail-helper.sh script
+# v1.14.12 (2025-08-14)
+#   - start: reduced duplicate status output; added quiet readiness probe to avoid redundant messages.
+#   - self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
+#   - PowerShell: aligned start messaging (quieter); notes added for 1.15.0.
+# v1.14.11 (2025-08-12) 
+#   - Implemented GitHub helpers for self_check_update/self_update (release/prerelease/dev.
+#   - Default unauthenticated GitHub API with optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
+#   - Streamlined start output (single pre-check and single final result).
+#   - Help updated to document channels and token usage.
+# v1.14.10 (2025-08-12) 
+#   - Implemented GitHub helpers for self_check_update/self_update (release/prerelease/dev.
+#   - Default unauthenticated GitHub API with optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
+#   - Streamlined start output (single pre-check and single final result).
+#   - Help updated to document channels and token usage.
+# v1.14.8 (2025-08-12)
+#   - Implemented short flags routing (-s, -r, -u, -d, -v, -w, -h) and documented them.
+#   - Router now includes where/diagnostics/self_check_update/self_update and help aliases.
+#   - Restored and preserved 1.13.2 `update` and `check-update` flows and helpers.
+#   - `self_check_update` always prints feedback; `self_update` prompts on downgrade.
+#   - `where` labels updated (surgemail helper command, SurgeMail Server directory).
+#   - README and man page updated.
+# v1.14.6 (2025-08-11)
+#   - Implement server `check_update` via `tellmail status` with page fallback.
+#   - Fix `is_running` with 10s wait; adjust `start`/`stop`/`reload`/`strong_stop` behavior.
+#   - Add short flags and `man` command; implement helper `self_*` clone vs ZIP logic.
+# v1.14.2 (2025-08-10)
+# Fixed
+#   - `diagnostics` now runs cleanly on hosts **without** SurgeMail installed; no syntax errors and no hard failures.
+#   - Safer command probes (status/version checks) won’t error if `tellmail`/`surgemail`/service managers are missing.
+# Improved
+#   - Updated README with **diagnostics** documentation and examples.
+# v1.14.1 (2025-08-10)
+#   - Restored full helper with verbose diagnostics, locking & self‑update flow.
+#   - Windows PowerShell and batch wrapper synced.
+#
+# See full history in included CHANGELOG.md
+# ============================================================================
+
 # Always run under bash
 if [ -z "$BASH_VERSION" ]; then exec /usr/bin/env bash "$0" "$@"; fi
 set -euo pipefail
@@ -39,7 +102,7 @@ have_git_checkout() {
 # Download a URL to a given file (supports GH_TOKEN/GITHUB_TOKEN for private repos)
 http_download() {
   # $1=url $2=dest_file
-  local url="$1" out="$2" ua="surgemail-helper/1.14.12"
+  local url="$1" out="$2" ua="surgemail-helper/1.15.0"
   local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
   if command -v curl >/dev/null 2>&1; then
     if [ -n "$token" ]; then
@@ -115,7 +178,7 @@ overlay_zip_to_root() {
 # --- end helpers ---
 
 
-# --- TEMP: early diagnostics command (runs before anything else) ---
+# --- early diagnostics command (runs before anything else) ---
 if [ "${1:-}" = "debug-gh" ]; then
   set +e
   echo "has_curl: $([ -n "$(command -v curl 2>/dev/null)" ] && echo yes || echo no)"
@@ -126,108 +189,11 @@ if [ "${1:-}" = "debug-gh" ]; then
   echo "default_branch: $(gh_default_branch)"
   exit 0
 fi
-# --- /TEMP ---
-
-# ============================================================================
-# SurgeMail Helper: Control & Updater (Unix)
-# Version: 1.14.12 (2025-09-14)
-#
-# ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
-#
-# SurgeMail Helper — v1.14.12
-#
-# INSTALL:
-# Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
-# you may opt to cd to SurgeMail-Helper and then run the the command below.
-#   sudo ln -sf scripts/surgemail-helper.sh /usr/local/bin/surgemail
-# Please make sure that /usr/local/bin is in your executable path. If you get the following error:
-#   bash: surgemail: command not found
-# you need to add this line below to your .bashrc file (in the user's home directory)
-#   export PATH="/usr/local/bin:$PATH"
-#
-# See CHANGELOG.md for details. Use symlink install:
-# Changelog (embedded summary; see external CHANGELOG.md if bundled)
-# v1.14.12 (- Implemented GitHub helpers for self_check_update/self_update (release/prerelease/dev).
-#   - Default unauthenticated GitHub API with optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
-#   - Streamlined start output (single pre-check and single final result).
-#   - Help updated to document channels and token usage.
-#   # v1.14.10 (- Implemented GitHub helpers for self_check_update/self_update (release/prerelease/dev).
-#   - Default unauthenticated GitHub API with optional token via --token or $GITHUB_TOKEN/$GH_TOKEN.
-#   - Streamlined start output (single pre-check and single final result).
-#   - Help updated to document channels and token usage.
-# v1.14.8 (2025-08-12)
-#   - Implemented short flags routing (-s, -r, -u, -d, -v, -w, -h) and documented them.
-#   - Router now includes where/diagnostics/self_check_update/self_update and help aliases.
-#   - Restored and preserved 1.13.2 `update` and `check-update` flows and helpers.
-#   - `self_check_update` always prints feedback; `self_update` prompts on downgrade.
-#   - `where` labels updated (surgemail helper command, SurgeMail Server directory).
-#   - README and man page updated.
-# v1.14.6 (2025-08-11)
-#   - Implement server `check_update` via `tellmail status` with page fallback.
-#   - Fix `is_running` with 10s wait; adjust `start`/`stop`/`reload`/`strong_stop` behavior.
-#   - Add short flags and `man` command; implement helper `self_*` clone vs ZIP logic.
-# v1.14.2 (2025-08-10)
-# Fixed
-#   - `diagnostics` now runs cleanly on hosts **without** SurgeMail installed; no syntax errors and no hard failures.
-#   - Safer command probes (status/version checks) won’t error if `tellmail`/`surgemail`/service managers are missing.
-# Improved
-#   - Updated README with **diagnostics** documentation and examples.
-# v1.14.1 (2025-08-10)
-#   - Restored full helper with verbose diagnostics, locking & self‑update flow.
-#   - Windows PowerShell and batch wrapper synced.
-# v1.13.2 (2025-08-10)
-#   - UPDATE: In `update` Step 6, only start SurgeMail if it's not already running
-#             at the new version (install.sh typically restarts it). If running
-#             but version differs, perform a controlled restart; otherwise skip start.
-# v1.13.1 (2025-08-10)
-#   - FIX: strong_stop() now uses `tellmail shutdown` for a clean stop.
-#   - FIX: cmd_status() brace/else syntax corrected.
-# v1.13.0 (2025-08-10)
-#   - Added `status` (runs `tellmail status`) and `version` (runs `tellmail version`) commands.
-# v1.12.4 (2025-08-10)
-#   - check-update: improved parsing of "Current Release 80e"; interactive upgrade prompt.
-#   - Non-interactive prints a concrete command with detected OS, or lists valid --os options.
-# v1.12.3 (2025-08-10)
-#   - Robust version parsing and safer comparator; interactive upgrade prompt.
-# v1.12.2 (2025-08-10)
-#   - Prevent silent exits in update/check-update under `set -e`.
-# v1.12.1 (2025-08-10)
-#   - Syntax hardening; minor fixes.
-# v1.12.0 (2025-08-10)
-#   - `check-update` always prints installed/latest; --auto announces action.
-# v1.11.0 (2025-08-10)
-#   - `stop` frees all standard mail/admin ports.
-# v1.10.0 (2025-08-10)
-#   - Introduced `--api` unattended installer driving (requires `expect` or `socat` on Unix).
-# v1.6.0 (2025-08-09)
-#   - Smoother output: pre-check common ports and summarize blockers
-#   - Optional --verbose to stream installer/start output; otherwise capture to files
-#   - Cleaner status messages for start/stop/restart/reload
-# v1.5.0 (2025-08-09)
-#   - API mode for update: --version <ver> (e.g., 80e) and --os <target>
-#   - Interactive prompts when values omitted; URL building per OS family
-#   - Windows artifacts are downloaded but not executed (manual step)
-# v1.4.0 (2025-08-09)
-#   - Health verification after start (tellmail/PID/HTTP)
-#   - Conditional extra stop+start when initial start looks unhealthy
-# v1.3.0 (2025-08-09)
-#   - Unified single script: command router (update/stop/start/restart/reload)
-#   - Human-friendly explanations after each command
-# v1.2.1 (2025-08-09)
-#   - Robust --dry-run flow (creates non-empty placeholder; skips strict size check)
-#   - Avoid heredoc pitfalls; safer printing
-# v1.2.0 (2025-08-09)
-#   - Added -h/--help for update; --dry-run; wget progress auto-detect
-# v1.1.0 (2025-08-09)
-#   - Safer update flow: set -euo pipefail; sudo/root check; mktemp workspace
-#   - URL HEAD check; tar -xzf; strict quoting; traps/cleanup
-# v1.0.0 (2025-08-09)
-#   - Initial dispatcher and basic update/start/stop hooks
-# ============================================================================
+# --- end early diagnostics ---
 
 set -euo pipefail
-HELPER_VERSION="1.14.12"
-SCRIPT_VERSION="1.14.12"
+HELPER_VERSION="1.15.0"
+SCRIPT_VERSION="1.15.0"
 
 # --- config ---
 SURGEMAIL_DIR="/usr/local/surgemail"
@@ -246,7 +212,7 @@ smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.14.12")
+  local args=(-H "User-Agent: surgemail-helper/1.15.0")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }
@@ -1076,7 +1042,7 @@ compare_versions_semver() {
   return 0
 }
 
-# Normalize semver-ish strings like "v1.14.12" -> "1.14.12" and fill missing parts.
+# Normalize semver-ish strings like "v1.15.0" -> "1.15.0" and fill missing parts.
 norm_semver() {
   # strip leading "v" or "V"
   local v="${1#v}"; v="${v#V}"
@@ -1361,7 +1327,7 @@ case "${1:-}" in
   *) echo "Unknown command: $1" >&2; exit 1 ;;
 esac
 
-# --- v1.14.12 helpers ---
+# --- v1.15.0 helpers ---
 
 have_git_checkout() {
   # We are in scripts/ ... project root is one level up

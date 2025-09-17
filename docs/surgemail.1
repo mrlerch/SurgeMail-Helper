@@ -1,11 +1,161 @@
-.TH surgemail 1 "August 2025" "SurgeMail Helper 1.14.10"
+.TH SURGEMAIL 1 "SurgeMail Helper 1.15.0" "SurgeMail-Helper" "User Commands"
 .SH NAME
-surgemail \- SurgeMail Helper CLI
+surgemail \- Helper for managing and updating SurgeMail servers
 .SH SYNOPSIS
 .B surgemail
-[\fIOPTIONS\fR] \fICOMMAND\fR
-.SH SHORT FLAGS
--s status, -r reload, -u update, -d diagnostics, -v version, -w where, -h help
+[\fIcommand\fR] [\fIoptions\fR]
+.SH DESCRIPTION
+SurgeMail Helper is a cross\-platform utility that wraps common SurgeMail
+administration tasks (start/stop/restart, update/install, diagnostics) and provides
+self\-updating of the helper scripts from GitHub. The same commands are available
+on Linux/Unix/macOS (shell script) and on Windows (PowerShell with batch wrappers).
 .SH COMMANDS
-status, start, stop, strong_stop, restart, reload, check-update, update,
-self_check_update, self_update, diagnostics, version, where, man, help
+.TP
+.B \-u | update
+Download and install a specified SurgeMail version.
+.RS
+.TP
+.BR --version " " \fIVER\fR
+Compact server version, e.g. \fB80e\fR (NOT a full artifact name).
+.TP
+.BR --os " " \fITARGET\fR
+One of: \fBwindows64\fR | \fBwindows\fR | \fBlinux64\fR | \fBlinux\fR | \fBsolaris_i64\fR | \fBfreebsd64\fR | \fBmacosx_arm64\fR | \fBmacosx_intel64\fR.
+.TP
+.B --api
+Non\-interactive mode; implies \fB--force\fR; requires \fB--version\fR.
+.TP
+.B --yes
+Auto\-answer prompts (no\-op on Windows installer .exe).
+.TP
+.B --force
+Kill any processes blocking required mail ports before start.
+.TP
+.B --dry-run
+Simulate actions without making changes.
+.TP
+.B --verbose
+Enable detailed debug output.
+.RE
+.TP
+.B check\-update
+Detect installed SurgeMail version and compare with the latest online. With
+\fB--auto\fR, runs \fBupdate --api\fR when a newer version is available.
+.RS
+.TP
+.BR --os " " \fITARGET\fR
+Override OS auto\-detection.
+.TP
+.B --auto
+Automatically trigger non\-interactive update when newer version is found.
+.TP
+.B --verbose
+Show additional details.
+.RE
+.TP
+.B self_check_update
+Check for a newer Helper script and prompt to update.
+.RS
+.TP
+.BR --channel " " \fBrelease\fR|\fBprerelease\fR|\fBdev\fR
+Select release channel (default: \fBrelease\fR).
+.TP
+.B --auto
+Run without prompts (good for cron).
+.TP
+.B --quiet
+Reduce output.
+.TP
+.BR --token " " \fIGH_TOKEN\fR
+GitHub token for higher rate limits/private repos.
+.RE
+.TP
+.B self_update
+Update the Helper script folder (git checkout or ZIP overlay). Same options as
+\fBself_check_update\fR.
+.TP
+.B stop
+Stop SurgeMail and free required ports (kills blockers).
+.TP
+.B start
+Start the SurgeMail server; with \fB--force\fR, kill blockers first.
+.TP
+.B restart
+Stop then start the server; accepts \fB--force\fR.
+.TP
+.B \-r | reload
+Reload configuration via \fBtellmail reload\fR.
+.TP
+.B \-s | status
+Show current status via \fBtellmail status\fR.
+.TP
+.B \-v | version
+Show installed server version via \fBtellmail version\fR.
+.TP
+.B \-w | where
+Show helper directory, server directory, and tellmail path.
+.TP
+.B \-d | diagnostics
+Print environment and helper diagnostics.
+.TP
+.B debug\-gh
+Print GitHub troubleshooting information (owner/repo, default branch, latest/prerelease tags, and API rate limit).
+.TP
+.B \-h | \-\-help
+Show help.
+.TP
+.B man
+Show this man page (if installed) or help.
+.SH EXAMPLES
+.TP
+Update to latest if available (cron friendly):
+.RS
+.nf
+/usr/local/bin/surgemail check\-update --auto
+.fi
+.RE
+.TP
+Install specific version for Linux x64:
+.RS
+.nf
+surgemail update --version 80e --os linux64
+.fi
+.RE
+.TP
+Restart the server and kill blocking listeners:
+.RS
+.nf
+surgemail restart --force
+.fi
+.RE
+.SH INSTALLATION OF MAN PAGE
+To install system\-wide on Linux:
+.RS
+.nf
+sudo install -d /usr/local/share/man/man1
+sudo gzip -c docs/surgemail.1 | sudo tee /usr/local/share/man/man1/surgemail.1.gz >/dev/null
+sudo mandb || sudo /usr/sbin/makewhatis || true
+.fi
+.RE
+On macOS (Intel):
+.RS
+.nf
+sudo install -d /usr/local/share/man/man1
+sudo gzip -c docs/surgemail.1 | sudo tee /usr/local/share/man/man1/surgemail.1.gz >/dev/null
+/usr/libexec/makewhatis /usr/local/share/man || true
+.fi
+.RE
+On macOS (Apple Silicon via Homebrew prefix):
+.RS
+.nf
+brew --prefix | xargs -I{{}} sh -c 'sudo install -d {{}}/share/man/man1; gzip -c docs/surgemail.1 | sudo tee {{}}/share/man/man1/surgemail.1.gz >/dev/null; /usr/libexec/makewhatis {{}}/share/man || true'
+.fi
+.RE
+View after install with:
+.RS
+.nf
+man surgemail
+.fi
+.RE
+.SH NOTES
+Windows does not use man pages natively; use WSL or refer to README for command help.
+The helper will attempt to detect and use the Windows Service "SurgeMail" if present, or fall back to start/stop batch scripts.
