@@ -333,8 +333,8 @@ Commands:
   -d | diagnostics  Print environment/report.
   -h | --help       Show this help
   man               Show help (Windows).
+  debug-gh          Debug GitHub API connectivity and auth
 
-  debug-gh           Debug GitHub API connectivity and auth
 Notes (Windows):
   • update: If the selected artifact is a Windows .exe, the file is downloaded and its path is printed.
             Silent installer flags vary by release; this script does not attempt to run the .exe.

@@ -306,6 +306,7 @@ Commands:
   -d | diagnostics  Print environment/report.
   -h | --help       Show this help
   man               Show man page (if installed), else help.
+  debug-gh          Debug GitHub API connectivity and auth
 EOF
 }
 fi
