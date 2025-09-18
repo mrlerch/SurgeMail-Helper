@@ -51,69 +51,66 @@ Short flags: `-s` status, `-r` reload, `-u` update, `-d` diagnostics, `-v` versi
 
 ```
 surgemail <command> [options]
-
-Commands: 
 ```
-  -u | update       Download and install a specified SurgeMail version  
-                    Options:  
-                      --version <ver>   e.g. 80e (NOT the full artifact name)  
-                      --os <target>     windows64 | windows | linux64 | linux |  
-                                        solaris_i64 | freebsd64 |  
-                                        macosx_arm64 | macosx_intel64  
-                  --api             non-interactive mode, requires --version
-                  --yes             auto-answer prompts
-                  --force           kill ANY processes blocking required ports
-                  --dry-run         simulate without changes
-                  --verbose         detailed debug output
 
-  check-update      Detect installed version and compare with latest online  
-                    Options:  
-                      --os <target>     Artifact OS (auto-detected if omitted)  
-                      --auto            If newer exists, run 'update --api' automatically.  
-                                        Triggers the update --api with latest version.  
-                                        Use this when setting up your scheduled run with cron  
-                                        crontab -e  
-                                        (* * * * * is place holder. user your own schedule)  
-                                        * * * * * /usr/local/bin/surgemail check-update --auto            
-                      --verbose         Show details
-                      
-  self_check_update Checks for newer ServerMail Helper script version and prompt to update.   
-                    Options:  
-                      --auto            Eliminates prompts in self_check_update.   
-                                        Use this in your cron job.  
-                      --channel         Options are:  
-                                        reelase  
-                                        prerelease  
-                                        dev  
-                                        If not set it defaults to release.    
-                      --quiet   suppress messages
-                      --token   GitHub token
-                      
-  self_update       Update the ServerMail Helper script folder (git clone or ZIP).  
-                    Options:  
-                      --auto            Eliminates prompts in self_check_update.   
-                                        Use this in your cron job.  
-                      --channel         Options are:  
-                                        reelase  
-                                        prerelease  
-                                        dev  
-                                        If not set it defaults to release.    
-                      --quiet   suppress messages
-                      --token   GitHub token
-                      
-  stop              Stop SurgeMail AND free required ports (kills blockers)  
-  start             Start the SurgeMail server (use --force to kill blockers)  
-  restart           Stop then start the SurgeMail server (use --force to kill blockers)  
-  -r | reload       Reload SurgeMail configuration via 'tellmail reload'  
-  -s | status       Show current SurgeMail status via 'tellmail status'  
-  -v | version      Show installed SurgeMail version via 'tellmail version'  
-  -w | where        Show helper dir, surgemail server dir, tellmail path.  
-  -d | diagnostics  Print environment/report.  
-  debug-gh          Print GitHub troubleshooting info
-  -h | --help       Show this help  
-  man               Show man page (if installed), else help.  
+Commands:  
 
-```
+&ensp;update | -u &emsp;&ensp;&emsp;&emsp;&emsp;Download and install a specified SurgeMail version   
+&ensp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;Options:  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;--version \<ver>&emsp;e.g. 80e (NOT the full artifact name)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&emsp;&ensp;&ensp;--os \<target>&emsp;&emsp;windows64 | windows | linux64 | linux | solaris_i64 | freebsd64 | macosx_arm64 | macosx_intel64  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&ensp;&ensp;--api&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;non-interactive mode (requires --version)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&emsp;&ensp;&ensp;--yes&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; auto-answer prompts  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&ensp;&ensp;--force&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;kill ANY processes blocking required ports  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&emsp;&ensp;&ensp;--dry-run&emsp;&emsp;&emsp;&ensp;&ensp;simulate without changes  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;&ensp;--verbose&emsp;&emsp;&emsp;&ensp; detailed debug output  
+
+&ensp;check-update&emsp;&ensp;&emsp;&emsp;Detect installed version and compare with latest online  
+&ensp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;Options:  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;--os \<target>&emsp;&emsp;windows64 | windows | linux64 | linux | solaris_i64 | freebsd64 | macosx_arm64 | macosx_intel64  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&emsp;&ensp;&ensp;--auto&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;If newer exists, run 'update --api' automatically.  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; Triggers the update --api with latest version.  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; Use this when setting up your scheduled run with cron  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; crontab -e  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; (* * * * * is place holder. user your own schedule)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; * * * * * /usr/local/bin/surgemail check-update --auto            
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&ensp;--verbose&emsp;&emsp;&emsp;&ensp; Show details
+                      
+&ensp;self_check_update&emsp; Checks for newer ServerMail Helper script version and prompt to update.   
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;&ensp;Options:  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&ensp;&ensp;&emsp;--auto&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;Eliminates prompts in self_check_update.   
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp; Use this in your cron job.  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&ensp;&emsp;--channel \<...>&emsp;&ensp;Options are:  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&emsp;release (e.g. --channel release)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&emsp;prerelease  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&emsp;dev  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;If not set it defaults to release.    
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;&ensp;--quiet&emsp;&emsp;&emsp;&emsp;&emsp; suppress messages  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;&ensp;--token&emsp;&emsp;&emsp;&emsp;&emsp;GitHub token
+                      
+&ensp;self_update&emsp;&ensp;&emsp;&emsp;&emsp;Update the ServerMail Helper script folder (git clone or ZIP).  
+&ensp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;Options:  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;--auto&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;Eliminates prompts in self_check_update.   
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;Use this in your cron job.  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&ensp;&ensp;&emsp;--channel \<...>&emsp;&ensp;Options are:  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;release (e.g. --channel release)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;prerelease  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;dev  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;If not set it defaults to release.   
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;&ensp;--quiet&emsp;&emsp;&emsp;&emsp;&emsp; suppress messages  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;&emsp;&ensp;--token&emsp;&emsp;&emsp;&emsp;&emsp;GitHub token
+                      
+&ensp;stop&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Stop SurgeMail AND free required ports (kills blockers)  
+&ensp;start&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Start the SurgeMail server (use --force to kill blockers)  
+&ensp;restart&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Stop then start the SurgeMail server (use --force to kill blockers)  
+&ensp;reload | -r&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; Reload SurgeMail configuration via 'tellmail reload'  
+&ensp;status | -s&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; Show current SurgeMail status via 'tellmail status'  
+&ensp;version | -v&emsp;&emsp;&emsp;&emsp;&emsp; Show installed SurgeMail version via 'tellmail version'  
+&ensp;where | -w&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;Show helper dir, surgemail server dir, tellmail path.  
+&ensp;diagnostics | -d&emsp;&emsp;&emsp; Print environment/report.  
+&ensp;debug-gh&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; Print GitHub troubleshooting info
+&ensp;--help | -h       Show this help  
+&ensp;man&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Show man page (if installed), else help.  
 
 
 ---
