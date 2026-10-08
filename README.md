@@ -1,4 +1,4 @@
-# SurgeMail Helper — v1.15.1
+# SurgeMail Helper — v1.15.2
 
 Cross-platform helper for managing and updating **SurgeMail** servers.  
 Works on **Linux/Unix/macOS** (`surgemail-helper.sh`) and **Windows** (`surgemail-helper.ps1` + `.bat` wrappers).

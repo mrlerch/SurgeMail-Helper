@@ -16,7 +16,7 @@ __gh_token() { printf "%s" "${GH_TOKEN:-${GITHUB_TOKEN:-}}"; }
 gh_http_get() {
   # $1 = URL
   local url="$1"
-  local ua="surgemail-helper/1.14.12"
+  local ua="surgemail-helper/1.15.2"
   local token; token="$(__gh_token)"
   if have curl; then
     if [ -n "$token" ]; then
@@ -62,12 +62,22 @@ gh_latest_release_tag() {
   printf "%s" "$tag"
 }
 
-# First prerelease tag (fetch more entries and pick the first prerelease)
+# Prerelease channel target: the NEWEST non-draft release, pre-release or not.
+# (A pre-release channel must never offer an older pre-release over a newer
+# stable release.) GitHub sends "tag_name" BEFORE "prerelease"/"draft" inside
+# each release object, and objects nest braces (author, assets), so split the
+# compact JSON into one record per "tag_name" and read each record in order.
+# Portable: POSIX sed with a literal newline (GNU and BSD/macOS).
 gh_first_prerelease_tag() {
   local json
-  # Fetch up to 50 in case prereleases aren’t on the first small page
   json="$(gh_http_get "$GH_API/repos/$GH_OWNER/$GH_REPO/releases?per_page=50")"
-  printf "%s" "$json" | tr -d '\n' | sed -n 's/.*"prerelease":true[^}]*"tag_name":"\([^"]*\)".*/\1/p' | head -n1
+  printf "%s" "$json" | tr -d '\n' | sed 's/"tag_name":/\
+"tag_name":/g' | while IFS= read -r rec; do
+    case "$rec" in '"tag_name":'*) ;; *) continue ;; esac
+    case "$rec" in *'"draft":true'*) continue ;; esac
+    printf "%s" "$rec" | sed -n 's/^"tag_name":"\([^"]*\)".*/\1/p'
+    break
+  done
 }
 
 # Default branch (no network/SSH unless necessary)

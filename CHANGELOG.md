@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.15.2] - 2026-10-08
+- self_update / self_check_update `--channel prerelease`: fixed. The tag lookup expected `"prerelease":true` before `"tag_name"`, but GitHub sends `tag_name` first, so it never matched ("Could not determine latest helper version from GitHub").
+- `--channel prerelease` now means the newest non-draft release, pre-release or stable, so it never offers an older pre-release over a newer stable release. PowerShell matches.
+- GitHub User-Agent updated (was still 1.14.12).
+
 ## [1.15.1] - 2026-10-08
 - update: install Netwin **beta** builds (e.g. the 8.2a security release). Netwin publishes betas under `/ftp/surgemail/beta/`; `update` now tries stable first and falls back to beta, or goes straight to beta with `--beta`.
 - update: unknown options are now rejected instead of being swallowed as the version (`--ver 82a` used to request `surgemail_--ver_linux64.tar.gz`). `--ver` is accepted as an alias for `--version`.

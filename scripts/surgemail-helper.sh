@@ -2,11 +2,11 @@
 
 # ============================================================================
 # SurgeMail Helper: Control & Updater (Unix)
-# Version: 1.15.1 (2026-10-08)
+# Version: 1.15.2 (2026-10-08)
 #
 # ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
 #
-# SurgeMail Helper — v1.15.1
+# SurgeMail Helper — v1.15.2
 #
 # INSTALL:
 # Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
@@ -20,6 +20,8 @@
 #
 # See CHANGELOG.md for details. Use symlink install:
 # Changelog (embedded summary; see external CHANGELOG.md if bundled)
+# v1.15.2 (2026-10-08)
+#   - self_update/self_check_update --channel prerelease: fixed (never resolved a tag); now = newest non-draft release.
 # v1.15.1 (2026-10-08)
 #   - update: beta builds (/ftp/surgemail/beta/) via fallback or --beta; reject unknown options; accept 8.2a form.
 #   - status detection: recognise 8.2a tellmail status (Key line only); update never starts a 2nd copy.
@@ -105,7 +107,7 @@ have_git_checkout() {
 # Download a URL to a given file (supports GH_TOKEN/GITHUB_TOKEN for private repos)
 http_download() {
   # $1=url $2=dest_file
-  local url="$1" out="$2" ua="surgemail-helper/1.15.1"
+  local url="$1" out="$2" ua="surgemail-helper/1.15.2"
   local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
   if command -v curl >/dev/null 2>&1; then
     if [ -n "$token" ]; then
@@ -195,8 +197,8 @@ fi
 # --- end early diagnostics ---
 
 set -euo pipefail
-HELPER_VERSION="1.15.1"
-SCRIPT_VERSION="1.15.1"
+HELPER_VERSION="1.15.2"
+SCRIPT_VERSION="1.15.2"
 
 # --- config ---
 SURGEMAIL_DIR="/usr/local/surgemail"
@@ -215,7 +217,7 @@ smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.15.1")
+  local args=(-H "User-Agent: surgemail-helper/1.15.2")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }

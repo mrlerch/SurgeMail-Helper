@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
   SurgeMail Helper: Control & Updater (Windows PowerShell)
-  Version: 1.15.1 (2026-10-08)
+  Version: 1.15.2 (2026-10-08)
 
 .DESCRIPTION
-  Windows PowerShell feature-parity port of the Bash-based "surgemail-helper.sh" v1.15.1.
+  Windows PowerShell feature-parity port of the Bash-based "surgemail-helper.sh" v1.15.2.
   Provides SurgeMail server lifecycle commands, update flows, self-update of the helper via GitHub,
   diagnostics, and convenience helpers. Mirrors command names, flags, and behavior where practical
   on Windows. For Unix-like systems use the original Bash script.
@@ -20,8 +20,8 @@
 $ErrorActionPreference = 'Stop'
 
 # Script/Helper version
-$SCRIPT_VERSION  = '1.15.1'
-$HELPER_VERSION  = '1.15.1'
+$SCRIPT_VERSION  = '1.15.2'
+$HELPER_VERSION  = '1.15.2'
 
 # Default install dir (Windows). Override via $Env:SURGEMAIL_DIR
 $Global:SURGEMAIL_DIR = if ($Env:SURGEMAIL_DIR) { $Env:SURGEMAIL_DIR } `
@@ -265,7 +265,8 @@ function GH-LatestReleaseTag {
 function GH-FirstPrereleaseTag {
   try {
     $rels = Invoke-HttpJson "$($Global:GH_API)/repos/$($Global:GH_OWNER)/$($Global:GH_REPO)/releases?per_page=50"
-    foreach ($r in $rels) { if ($r.prerelease -and $r.tag_name) { return $r.tag_name } }
+    # Newest non-draft release, pre-release or not (never an older pre-release over a newer stable).
+    foreach ($r in $rels) { if (-not $r.draft -and $r.tag_name) { return $r.tag_name } }
   } catch {}
   return $null
 }
