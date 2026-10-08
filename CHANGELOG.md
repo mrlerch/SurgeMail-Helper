@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.15.1] - 2026-10-08
+- update: install Netwin **beta** builds (e.g. the 8.2a security release). Netwin publishes betas under `/ftp/surgemail/beta/`; `update` now tries stable first and falls back to beta, or goes straight to beta with `--beta`.
+- update: unknown options are now rejected instead of being swallowed as the version (`--ver 82a` used to request `surgemail_--ver_linux64.tar.gz`). `--ver` is accepted as an alias for `--version`.
+- update: version may be given as `8.2a` as well as `82a`.
+- update: exits non-zero when the package can't be found, so callers (cron, CertForge) see the failure.
+- status/start/stop/restart: SurgeMail 8.2a's `tellmail status` no longer prints "SurgeMail Version" (only the `Key ... OK` line), so the helper believed a running 8.2a server was down. Readiness now accepts the Key/Uptime lines too.
+- update: after the installer, wait for its own restart to finish; never start a second SurgeMail over a live process, and never stop/start a running-but-slow server in the verify step. (On 8.2a this previously caused a duplicate start, a port-25 fight and a full outage.)
+- PowerShell: same beta fallback, `--beta`, `--ver` alias, version normalisation and unknown-option check.
+
 ## [1.15.0] - 2025-09-16
 - self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
 - added _gh_helpers.inc.sh helper script for surgemail-helper.sh

@@ -1,4 +1,4 @@
-# SurgeMail Helper — v1.15.0
+# SurgeMail Helper — v1.15.1
 
 Cross-platform helper for managing and updating **SurgeMail** servers.  
 Works on **Linux/Unix/macOS** (`surgemail-helper.sh`) and **Windows** (`surgemail-helper.ps1` + `.bat` wrappers).
@@ -57,7 +57,8 @@ Commands:
 
 &ensp;update | -u &emsp;&ensp;&emsp;&emsp;&emsp;Download and install a specified SurgeMail version   
 &ensp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;Options:  
-&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;--version \<ver>&emsp;e.g. 80e (NOT the full artifact name)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;--version \<ver>&emsp;e.g. 80e or 8.0e (NOT the full artifact name)  
+&ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&emsp;&ensp;&emsp;&ensp;&ensp;--beta&emsp;Fetch from Netwin's beta channel (stable is tried first, then beta, without it)  
 &ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&emsp;&ensp;&ensp;--os \<target>&emsp;&emsp;windows64 | windows | linux64 | linux | solaris_i64 | freebsd64 | macosx_arm64 | macosx_intel64  
 &ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&emsp;&ensp;&ensp;--api&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;non-interactive mode (requires --version)  
 &ensp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&emsp;&ensp;&emsp;&ensp;&ensp;--yes&emsp;&emsp;&emsp;&emsp;&emsp;&ensp; auto-answer prompts  

@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
   SurgeMail Helper: Control & Updater (Windows PowerShell)
-  Version: 1.15.0 (2025-09-16)
+  Version: 1.15.1 (2026-10-08)
 
 .DESCRIPTION
-  Windows PowerShell feature-parity port of the Bash-based "surgemail-helper.sh" v1.15.0.
+  Windows PowerShell feature-parity port of the Bash-based "surgemail-helper.sh" v1.15.1.
   Provides SurgeMail server lifecycle commands, update flows, self-update of the helper via GitHub,
   diagnostics, and convenience helpers. Mirrors command names, flags, and behavior where practical
   on Windows. For Unix-like systems use the original Bash script.
@@ -20,8 +20,8 @@
 $ErrorActionPreference = 'Stop'
 
 # Script/Helper version
-$SCRIPT_VERSION  = '1.15.0'
-$HELPER_VERSION  = '1.15.0'
+$SCRIPT_VERSION  = '1.15.1'
+$HELPER_VERSION  = '1.15.1'
 
 # Default install dir (Windows). Override via $Env:SURGEMAIL_DIR
 $Global:SURGEMAIL_DIR = if ($Env:SURGEMAIL_DIR) { $Env:SURGEMAIL_DIR } `
@@ -173,7 +173,8 @@ function Test-SurgeMailReadyQuiet {
   $out = Invoke-Tellmail @('status')
   if ($out) {
     if ($out -match 'Bad Open Response') { return $false }
-    if ($out -match 'SurgeMail Version') { return $true }
+    # 8.1x prints 'SurgeMail Version'; 8.2a prints only the 'Key ... OK' line.
+    if ($out -match 'SurgeMail Version|(?m)^Key \S+ OK|(?m)^Uptime:') { return $true }
   }
   if (Test-Path $Global:PID_FILE) {
     try { $pid = Get-Content $Global:PID_FILE | Select-Object -First 1
@@ -303,7 +304,9 @@ Usage: surgemail <command> [options]
 Commands:
   -u | update       Download and install a specified SurgeMail version
                     Options:
-                      --version <ver>   e.g. 80e (NOT the full artifact name)
+                      --version <ver>   e.g. 80e or 8.0e (NOT the full artifact name)
+                      --beta            Fetch from Netwin's beta channel (/ftp/surgemail/beta/).
+                                        Without it, stable is tried first, then beta.
                       --os <target>     windows64 | windows | linux64 | linux |
                                         solaris_i64 | freebsd64 |
                                         macosx_arm64 | macosx_intel64
@@ -357,7 +360,8 @@ function Resolve-Artifact($Version, $Os) {
   }
   $artifact = "surgemail_${Version}_${suffix}.${ext}"
   $url = "https://netwinsite.com/ftp/surgemail/$artifact"
-  return @{ Artifact=$artifact; Url=$url }
+  $betaUrl = "https://netwinsite.com/ftp/surgemail/beta/$artifact"
+  return @{ Artifact=$artifact; Url=$url; BetaUrl=$betaUrl }
 }
 
 function cmd_check_update {
@@ -453,18 +457,21 @@ function cmd_check_update {
 
 function cmd_update {
   param([string[]]$Args)
-  $DRY_RUN=$false; $VERSION=''; $TARGET_OS=''; $FORCE=$false; $API=$false; $AUTO_YES=$false
+  $DRY_RUN=$false; $VERSION=''; $TARGET_OS=''; $FORCE=$false; $API=$false; $AUTO_YES=$false; $BETA=$false
   for ($i=0; $i -lt $Args.Count; $i++) {
     switch ($Args[$i]) {
       '--dry-run' { $DRY_RUN = $true }
       '--version' { $VERSION = $Args[++$i] }
+      '--ver'     { $VERSION = $Args[++$i] }
+      '--beta'    { $BETA = $true }
       '--os'      { $TARGET_OS = $Args[++$i] }
       '--force'   { $FORCE = $true }
       '--api'     { $API = $true; $AUTO_YES=$true; $FORCE=$true }
       '--yes'     { $AUTO_YES=$true }
       '--verbose' { $Global:VERBOSE = 1 }
       '-h' { Show-MainHelp; return }
-      default { if (-not $VERSION) { $VERSION = $Args[$i] } elseif (-not $TARGET_OS) { $TARGET_OS = $Args[$i] } }
+      default { if ($Args[$i] -like '-*') { Write-Host "Unknown update option: $($Args[$i]) (see: surgemail --help)"; return }
+                if (-not $VERSION) { $VERSION = $Args[$i] } elseif (-not $TARGET_OS) { $TARGET_OS = $Args[$i] } }
     }
   }
 
@@ -485,14 +492,25 @@ function cmd_update {
     }
   }
 
-  $res = Resolve-Artifact $VERSION $TARGET_OS
-  $artifact = $res.Artifact; $url = $res.Url
+  # Accept "8.2a" / "v8.2a" as well as "82a".
+  $VERSION = $VERSION.TrimStart('v').ToLower()
+  if ($VERSION -match '^(\d+)\.(\d+)([a-z])$') { $VERSION = "$($Matches[1])$($Matches[2])$($Matches[3])" }
 
-  Write-Host ""
-  Write-Host "1) Checking availability: $url"
-  try {
-    $resp = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing
-  } catch { Write-Host "Package not found at: $url (check version/OS)."; return }
+  $res = Resolve-Artifact $VERSION $TARGET_OS
+  $artifact = $res.Artifact
+
+  # Netwin publishes betas under /ftp/surgemail/beta/. --beta goes straight there;
+  # otherwise try stable first, then fall back to beta.
+  $candidates = if ($BETA) { @($res.BetaUrl) } else { @($res.Url, $res.BetaUrl) }
+  $url = $null
+  foreach ($u in $candidates) {
+    Write-Host ""
+    Write-Host "1) Checking availability: $u"
+    try { $null = Invoke-WebRequest -Uri $u -Method Head -UseBasicParsing; $url = $u; break }
+    catch { Write-Host "Not found at: $u" }
+  }
+  if (-not $url) { Write-Host "Package not found (check version/OS)."; return }
+  if ($url -eq $res.BetaUrl) { Write-Host "NOTE: installing a BETA build from Netwin's beta channel." }
 
   $work = New-Item -ItemType Directory -Path ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(),"surgemail-update-"+([System.Guid]::NewGuid()))) -Force
   $FILENAME = Join-Path $work.FullName $artifact

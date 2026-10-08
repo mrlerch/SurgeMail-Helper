@@ -2,11 +2,11 @@
 
 # ============================================================================
 # SurgeMail Helper: Control & Updater (Unix)
-# Version: 1.15.0 (2025-09-16)
+# Version: 1.15.1 (2026-10-08)
 #
 # ©2025 LERCH design. All rights reserved. https://www.lerchdesign.com. DO NOT REMOVE.
 #
-# SurgeMail Helper — v1.15.0
+# SurgeMail Helper — v1.15.1
 #
 # INSTALL:
 # Store the SurgeMail-Helper directory where you wish. IF you want to use the script globally
@@ -20,6 +20,9 @@
 #
 # See CHANGELOG.md for details. Use symlink install:
 # Changelog (embedded summary; see external CHANGELOG.md if bundled)
+# v1.15.1 (2026-10-08)
+#   - update: beta builds (/ftp/surgemail/beta/) via fallback or --beta; reject unknown options; accept 8.2a form.
+#   - status detection: recognise 8.2a tellmail status (Key line only); update never starts a 2nd copy.
 # v1.15.0 (2025-09-16)
 #   - self_check_update/self_update: fixed GitHub detection errors; support channels (release/prerelease/dev), auto/quiet, git vs ZIP flows, and downgrade protection.
 #   - added _gh_helpers.inc.sh helper script for surgemail-helper.sh
@@ -102,7 +105,7 @@ have_git_checkout() {
 # Download a URL to a given file (supports GH_TOKEN/GITHUB_TOKEN for private repos)
 http_download() {
   # $1=url $2=dest_file
-  local url="$1" out="$2" ua="surgemail-helper/1.15.0"
+  local url="$1" out="$2" ua="surgemail-helper/1.15.1"
   local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
   if command -v curl >/dev/null 2>&1; then
     if [ -n "$token" ]; then
@@ -192,8 +195,8 @@ fi
 # --- end early diagnostics ---
 
 set -euo pipefail
-HELPER_VERSION="1.15.0"
-SCRIPT_VERSION="1.15.0"
+HELPER_VERSION="1.15.1"
+SCRIPT_VERSION="1.15.1"
 
 # --- config ---
 SURGEMAIL_DIR="/usr/local/surgemail"
@@ -212,7 +215,7 @@ smh_script_path() { readlink -f "$0" 2>/dev/null || echo "$0"; }
 smh_base_dir()    { local p; p="$(dirname "$(smh_script_path)")"; dirname "$p"; }
 is_git_checkout() { [[ -d "$(smh_base_dir)/.git" ]] ; }
 auth_headers() {
-  local args=(-H "User-Agent: surgemail-helper/1.15.0")
+  local args=(-H "User-Agent: surgemail-helper/1.15.1")
   if [[ -n "${GH_TOKEN:-}" ]]; then args+=(-H "Authorization: Bearer $GH_TOKEN"); fi
   printf '%s\n' "${args[@]}"
 }
@@ -253,7 +256,9 @@ Usage: surgemail <command> [options]
 Commands:
   -u | update       Download and install a specified SurgeMail version
                     Options:
-                      --version <ver>   e.g. 80e (NOT the full artifact name)
+                      --version <ver>   e.g. 80e or 8.0e (NOT the full artifact name)
+                      --beta            Fetch from Netwin's beta channel (/ftp/surgemail/beta/).
+                                        Without it, stable is tried first, then beta.
                       --os <target>     windows64 | windows | linux64 | linux |
                                         solaris_i64 | freebsd64 |
                                         macosx_arm64 | macosx_intel64
@@ -313,6 +318,32 @@ fi
 
 
 # ---------- status & waits ----------
+# Classify `tellmail status` output. 8.1x prints "SurgeMail Version ..." plus
+# "Key ... OK"/"Uptime:"; 8.2a prints ONLY the "Key ... OK" line. A stopped
+# server prints "Bad Open Response". Any of the positive markers means up.
+tellmail_status_says_up() {
+  local out="$1"
+  [[ -z "$out" ]] && return 1
+  [[ "$out" == *"Bad Open Response"* ]] && return 1
+  echo "$out" | grep -Eq 'SurgeMail Version|^Key [^ ]+ OK|^Uptime:' && return 0
+  return 1
+}
+
+# True if a SurgeMail server process exists (whether or not it is ready yet).
+# Matches on the executable, not the name: this helper is itself usually run as
+# /usr/local/bin/surgemail, so a name match would always find ourselves.
+surgemail_process_running() {
+  local want pid exe
+  want="$(readlink -f "$SURGEMAIL_DIR/surgemail" 2>/dev/null || echo "$SURGEMAIL_DIR/surgemail")"
+  for pid in $(pgrep -x surgemail 2>/dev/null); do
+    [[ "$pid" == "$$" ]] && continue
+    exe="$(readlink -f "/proc/$pid/exe" 2>/dev/null || true)"
+    exe="${exe% (deleted)}"
+    [[ "$exe" == "$want" ]] && return 0
+  done
+  return 1
+}
+
 is_surgemail_ready() {
   echo "Checking status..."
   sleep 1
@@ -327,21 +358,15 @@ is_surgemail_ready() {
   fi
   local out
   out="$("$_tell" status 2>/dev/null || true)"
-  if echo "$out" | grep -q "Bad Open Response"; then
-    return 1
-  fi
-  if echo "$out" | grep -q "SurgeMail Version"; then
-    return 0
-  fi
-  return 1
+  tellmail_status_says_up "$out"
 }
 
 is_surgemail_ready_quiet() {
   local _tell="${TELLMAIL_BIN:-tellmail}"
   if command -v "$_tell" >/dev/null 2>&1; then
     local out; out="$("$_tell" status 2>/dev/null || true)"
+    tellmail_status_says_up "$out" && return 0
     [[ "$out" == *"Bad Open Response"* ]] && return 1
-    [[ "$out" == *"SurgeMail Version"* ]] && return 0
   fi
   if [[ -f "$PID_FILE" ]]; then
     local pid; pid="$(cat "$PID_FILE" 2>/dev/null || true)"
@@ -472,6 +497,16 @@ resolve_artifact() {
   esac
   ARTIFACT="surgemail_${ver}_${suffix}.${ext}"
   URL="https://netwinsite.com/ftp/surgemail/${ARTIFACT}"
+  BETA_URL="https://netwinsite.com/ftp/surgemail/beta/${ARTIFACT}"
+}
+
+# Accept "8.2a" / "v8.2a" / "82A" and return the compact artifact token "82a".
+normalize_version_arg() {
+  local v="${1#v}"
+  if [[ "$v" =~ ^([0-9]+)\.([0-9]+)([A-Za-z])$ ]]; then
+    v="${BASH_REMATCH[1]}${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+  fi
+  echo "${v,,}"
 }
 
 detect_wget_progress_opt() {
@@ -717,17 +752,19 @@ cmd_check_update() {
 
 cmd_update() {
   set +e
-  local DRY_RUN=0 VERSION="" TARGET_OS="" FORCE=0 API=0 AUTO_YES=0
+  local DRY_RUN=0 VERSION="" TARGET_OS="" FORCE=0 API=0 AUTO_YES=0 BETA=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run) DRY_RUN=1; shift ;;
-      --version) VERSION="${2:-}"; shift 2 ;;
+      --version|--ver) VERSION="${2:-}"; shift 2 ;;
+      --beta)    BETA=1; shift ;;
       --os)      TARGET_OS="${2:-}"; shift 2 ;;
       --force)   FORCE=1; shift ;;
       --api)     API=1; AUTO_YES=1; FORCE=1; shift ;;
       --yes)     AUTO_YES=1; shift ;;
       --verbose) VERBOSE=1; shift ;;
       -h|--help) show_main_help; set -e; return 0 ;;
+      -*) echo "Unknown update option: $1 (see: surgemail --help)" >&2; set -e; return 2 ;;
       *) if [[ -z "$VERSION" ]]; then VERSION="$1"; shift; continue; fi
          if [[ -z "$TARGET_OS" ]]; then TARGET_OS="$1"; shift; continue; fi
          shift ;;
@@ -751,14 +788,24 @@ cmd_update() {
     fi
   fi
 
+  VERSION="$(normalize_version_arg "$VERSION")"
   resolve_artifact "$VERSION" "$TARGET_OS"
   local FILENAME="$ARTIFACT"
   local PROG_OPT; PROG_OPT="$(detect_wget_progress_opt)"
   vlog "Using wget progress option: $PROG_OPT"
 
-  echo -e "\n1) Checking availability: $URL"
-  wget --spider -q "$URL"
-  if [[ $? -ne 0 ]]; then echo "Package not found at: $URL (check version/OS)."; set -e; return 0; fi
+  # Netwin publishes betas (e.g. urgent security builds) under /ftp/surgemail/beta/.
+  # --beta goes straight there; otherwise try stable first, then fall back to beta.
+  local candidates=("$URL" "$BETA_URL") found="" u
+  (( BETA==1 )) && candidates=("$BETA_URL")
+  for u in "${candidates[@]}"; do
+    echo -e "\n1) Checking availability: $u"
+    if wget --spider -q "$u"; then found="$u"; break; fi
+    echo "Not found at: $u"
+  done
+  if [[ -z "$found" ]]; then echo "Package not found (check version/OS)."; set -e; return 1; fi
+  URL="$found"
+  [[ "$URL" == "$BETA_URL" ]] && echo "NOTE: installing a BETA build from Netwin's beta channel."
 
   WORKDIR="$(mktemp -d -t surgemail-update-XXXXXXXX)"
   echo "Using temp dir: $WORKDIR"
@@ -857,6 +904,19 @@ EXP
       if [[ -n "$current_norm" ]]; then current_pretty="$(pretty_from_norm "$current_norm")"; fi
     fi
 
+    # Netwin's installer restarts SurgeMail itself ("Restarting Service"). Give that
+    # start time to finish before deciding anything, and never launch a second copy
+    # over a live process: that is what fights for port 25 and kills both.
+    if ! is_surgemail_ready && surgemail_process_running; then
+      echo "SurgeMail process is up but not ready yet; waiting for the installer's restart to finish..."
+      wait_for_ready 60 || true
+      if command -v tellmail >/dev/null 2>&1; then
+        tv="$(tellmail version 2>/dev/null || true)"
+        current_norm="$(norm_version "$tv")"
+        [[ -n "$current_norm" ]] && current_pretty="$(pretty_from_norm "$current_norm")"
+      fi
+    fi
+
     if is_surgemail_ready && [[ -n "$current_norm" ]]; then
       if [[ "$current_norm" == "$expected_norm" ]]; then
         echo "SurgeMail is already running at the expected version (${current_pretty}). Skipping explicit start."
@@ -867,6 +927,9 @@ EXP
         wait_for_stopped 20 || true
         if [[ $VERBOSE -eq 1 ]]; then "$START_CMD" || true; else "$START_CMD" >"$WORKDIR/start_fix.out" 2>&1 || true; echo "(details: $WORKDIR/start_fix.out)"; fi
       fi
+    elif surgemail_process_running; then
+      echo "SurgeMail process exists but is not answering tellmail; NOT starting a second copy."
+      echo "Check $SURGEMAIL_DIR/logs or run: surgemail status"
     else
       echo "SurgeMail is not running (or not healthy). Starting now..."
       if [[ $VERBOSE -eq 1 ]]; then
@@ -888,6 +951,12 @@ EXP
     if wait_for_ready 45; then
       echo "SurgeMail looks healthy."
     else
+      if surgemail_process_running; then
+        echo "SurgeMail process is running but not answering tellmail after 45s; leaving it alone (no stop/start)."
+        echo "Check $SURGEMAIL_DIR/logs or run: surgemail status"
+        echo -e "\nUpdate finished with warnings. Surgemail script v${SCRIPT_VERSION}. Target version ${VERSION} (OS: ${TARGET_OS}).\n"
+        set -e; return 1
+      fi
       echo "Service not healthy yet; performing extra stop + start..."
       "$STOP_CMD" || true
       if wait_for_stopped 20; then echo "Confirmed SurgeMail has stopped (extra cycle)."; fi
